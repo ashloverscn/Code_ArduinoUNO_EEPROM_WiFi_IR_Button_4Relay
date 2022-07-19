@@ -247,7 +247,7 @@ void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
     case AceButton::kEventReleased:
       if(dimm_value>=0)
       {
-        dimm_value -= 1 ;
+        dimm_value -= 1;
         atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
         EEPROM.update(7, dimm_value);        
       }
