@@ -2,6 +2,10 @@
 #include <IRremote.h>
 #include <AceButton.h>
 #include <arduino-timer.h>
+#include <atmega328_16mhz_ac_phase_control.h>
+
+int speed[14]={600,500,480,450,400,380,350,300,250,180,150,80,50,1};
+//valus from 623 to 1 NOTE: MIN_AC_POWER=623 and MAX_AC_POWER=1
 
 auto timer = timer_create_default(); // create a timer with default settings
 using namespace ace_button;
@@ -36,8 +40,8 @@ using namespace ace_button;
 IRrecv irrecv(IR_RECV_PIN);
 decode_results results;
 
-String bt_data; // variable for storing bluetooth data
 String pinStatus = "0000";
+int dimm = 0;
 
 ButtonConfig config1;
 AceButton button1(&config1);
@@ -136,6 +140,8 @@ void setup() {
   
   irrecv.enableIRIn(); // Start the receiver
 
+  atmega328_16mhz_ac_phase_control.init(); //Initialize AC Phase dimmer
+  
   pinMode(RelayPin1, OUTPUT);
   pinMode(RelayPin2, OUTPUT);
   pinMode(RelayPin3, OUTPUT);
@@ -179,6 +185,8 @@ void setup() {
 void loop() {
 
   ir_remote();
+
+  atmega328_16mhz_ac_phase_control.set_ac_power(speed[dimm]);//speed[0 to 13] or 623 to 1 
   
   button1.check();
   button2.check();
