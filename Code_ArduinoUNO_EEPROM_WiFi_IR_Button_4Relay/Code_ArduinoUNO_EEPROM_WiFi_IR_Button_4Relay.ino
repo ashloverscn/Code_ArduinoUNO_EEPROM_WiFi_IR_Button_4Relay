@@ -111,15 +111,15 @@ void ir_remote(){
             {
              dimm_value += 1;
              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
-             EEPROM.write(7, dimm_value);
+             EEPROM.update(7, dimm_value);
             }
           break;
           case IR_Button_Dn:
-          if(dimm_value>0)
+          if(dimm_value>=0)
             {
               dimm_value -= 1 ;
               atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
-              EEPROM.write(7, dimm_value);        
+              EEPROM.update(7, dimm_value);        
             }
           break;
           case IR_All_Off:   all_Switch_OFF();  break;
@@ -148,6 +148,7 @@ void all_Switch_OFF(){
 void sendStatus(){  
   pinStatus = String(digitalRead(RelayPin1)) + String(digitalRead(RelayPin2)) + String(digitalRead(RelayPin3)) + String(digitalRead(RelayPin4));
   Serial.println(pinStatus);
+  Serial.println(dimm_value);
 }
 
 void setup() {
@@ -244,11 +245,11 @@ void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      if(dimm_value>0)
+      if(dimm_value>=0)
       {
         dimm_value -= 1 ;
         atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
-        EEPROM.write(7, dimm_value);        
+        EEPROM.update(7, dimm_value);        
       }
       break;
   }
@@ -260,7 +261,7 @@ void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
       {
        dimm_value += 1;
        atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
-       EEPROM.write(7, dimm_value);
+       EEPROM.update(7, dimm_value);
       }
       break;
   }
