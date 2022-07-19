@@ -4,7 +4,7 @@
 #include <arduino-timer.h>
 #include <atmega328_16mhz_ac_phase_control.h>
 
-int speed[14]={600,500,480,450,400,380,350,300,250,180,150,80,50,1};
+int spd[14]={600,500,480,450,400,380,350,300,250,180,150,80,50,1};//our good stage's values
 //valus from 623 to 1 NOTE: MIN_AC_POWER=623 and MAX_AC_POWER=1
 
 auto timer = timer_create_default(); // create a timer with default settings
@@ -41,7 +41,7 @@ IRrecv irrecv(IR_RECV_PIN);
 decode_results results;
 
 String pinStatus = "0000";
-int dimm = 0;
+int dimm_value = 0;
 
 ButtonConfig config1;
 AceButton button1(&config1);
@@ -95,6 +95,7 @@ void eepromState()
   digitalWrite(RelayPin2, EEPROM.read(1)); delay(200);
   digitalWrite(RelayPin3, EEPROM.read(2)); delay(200);
   digitalWrite(RelayPin4, EEPROM.read(3)); delay(200);
+  dimm_value = EEPROM.read(7); delay(200);
 }
 
 void ir_remote(){
@@ -105,8 +106,22 @@ void ir_remote(){
           case IR_Button_2:  relayOnOff(2);     break;
           case IR_Button_3:  relayOnOff(3);     break;
           case IR_Button_4:  relayOnOff(4);     break;
-          case IR_Button_Up:  digitalWrite(9,HIGH); Serial.println("Up");     break;
-          case IR_Button_Dn:  digitalWrite(9,LOW); Serial.println("Down");     break;
+          case IR_Button_Up:
+          if(dimm_value<13)
+            {
+             dimm_value += 1;
+             atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+             EEPROM.write(7, dimm_value);
+            }
+          break;
+          case IR_Button_Dn:
+          if(dimm_value>0)
+            {
+              dimm_value -= 1 ;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+              EEPROM.write(7, dimm_value);        
+            }
+          break;
           case IR_All_Off:   all_Switch_OFF();  break;
           case IR_All_On:    all_Switch_ON();   break;
           default : break;         
@@ -186,7 +201,7 @@ void loop() {
 
   ir_remote();
 
-  atmega328_16mhz_ac_phase_control.set_ac_power(speed[dimm]);//speed[0 to 13] or 623 to 1 
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 13] or 623 to 1 
   
   button1.check();
   button2.check();
@@ -229,16 +244,24 @@ void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      digitalWrite(TriacPin,LOW);
-      Serial.println("Down");
+      if(dimm_value>0)
+      {
+        dimm_value -= 1 ;
+        atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+        EEPROM.write(7, dimm_value);        
+      }
       break;
   }
 }
 void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      digitalWrite(TriacPin,HIGH);
-      Serial.println("Up");
+      if(dimm_value<13)
+      {
+       dimm_value += 1;
+       atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+       EEPROM.write(7, dimm_value);
+      }
       break;
   }
 }
