@@ -147,12 +147,12 @@ void all_Switch_OFF(){
 
 void sendStatus(){  
   pinStatus = String(digitalRead(RelayPin1)) + String(digitalRead(RelayPin2)) + String(digitalRead(RelayPin3)) + String(digitalRead(RelayPin4));
-  Serial.println(pinStatus);
-  Serial.println(dimm_value);
+  //Serial.println(pinStatus);
+  //Serial.println(dimm_value);
 }
 
 void setup() {
-  Serial.begin(9600);
+  //Serial.begin(9600);
   
   irrecv.enableIRIn(); // Start the receiver
 
