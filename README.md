@@ -14,3 +14,5 @@ arduino-timer.h   Available in Arduino Library Manager
 atmega328_16mhz_ac_phase_control.h https://github.com/ashloverscn/atmega328-16mhz-ac-phase-control
 
 
+Related Blog by Tech StudyCell : https://iotcircuithub.com/arduino-iot-project-with-google-assistant-alexa/
+ 
