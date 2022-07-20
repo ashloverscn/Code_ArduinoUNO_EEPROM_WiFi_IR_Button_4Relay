@@ -115,5 +115,6 @@ https://www.youtube.com/watch?v=WashxTcHiDc
 humming
 get back to original pin scheme 2-3,4-5-6-7,9,10-11-12,A0-A1-A2-A3-A4-A5 (unused 0RX-1TX,8,13,A6,A7)
 attach dimmer off -1 to all off all on function
-add button 5 of ir remtote to turn on and off triac spd[-1] as off spd[14] as fully on, do not write epprom for this operation
+dimm_value <= 13 as fully on for Triac
+add button 5 of ir remtote to turn on and off triac spd[-1] as off, do not write epprom for this operation
 add 7 segment 595 display for speed
