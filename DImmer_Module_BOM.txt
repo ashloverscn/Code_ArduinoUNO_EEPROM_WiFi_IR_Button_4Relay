@@ -1,0 +1,119 @@
+######### Dimmer_Module #########
+5 x resistor 330r,10k,1k,39r2w,100k4w
+4 x diode 1n4007
+1 x capacitors 0.1uf-104j630v
+1 x optocoupler pc817
+1 x optotriac-driver moc3021
+1 x triac bt136
+2 x 2 pin screw-terminal
+1 x 4 pin berg-strip male-female
++++++++++++ Total +++++++++++++
+16
+
+####### Power_Supply_StepDown #######
+1 x ac to dc converter transformer Hi-Link
+1 x Voltage-Regulator ic
+2 x Capacitor
+1 x 4 pin berg strip
+++++++++++++ Total ++++++++++++++
+5
+############ capacitive power supply links ##############
+https://www.youtube.com/watch?v=2PD4VruddL8&t=467s
+https://www.youtube.com/watch?v=xQUry_xijeM
+https://www.youtube.com/watch?v=3Ifysyob-vU
+https://www.youtube.com/watch?v=9fMEUcXYicc&t=46s
+https://www.youtube.com/watch?v=AZebK05T5mY
+https://www.youtube.com/watch?v=naiGqFof7cA
+https://www.youtube.com/watch?v=TCMddrK87pM
+https://www.youtube.com/watch?v=5ArDkROblxM
+https://www.youtube.com/watch?v=g7nMLfHrJE4
+https://www.youtube.com/watch?v=45N3yufUxnw
+
+########### ArduinoNano ###########
+1 x Arduino Nano
+++++++++++++ Total ++++++++++++++
+1
+
+########### Relay_Module ##########
+4 x 3 pin screw terminal
+4 x relay 5-6v
+4 x diode 1n4007
+4 x transistor bc547
+4 x resistor 1k
+++++++++++++ Total ++++++++++++++
+20
+
+####### Analog_Switch_Array #######
+6 x tact-switch 
+7 x resistor
+1 x 3 pin berg strip
+++++++++++++ Total ++++++++++++++
+14
+
+####### IR-Sensor_Module #######
+1 x IR-sensor 
+1 x 3 pin berg strip
+++++++++++++ Total ++++++++++++++
+2
+
+############# Links ###############
+https://www.youtube.com/watch?v=X3PXI-QLK9s
+https://www.youtube.com/watch?v=wRF_3-2VMAM
+https://www.youtube.com/watch?v=gb5kO-vMXy0
+https://www.youtube.com/watch?v=lQOzLP1lMJU&t=191s
+https://www.youtube.com/watch?v=hGh32aLox4Y&t=712s
+https://www.youtube.com/watch?v=39YvgWGFpAI
+https://www.youtube.com/watch?v=YpddzFyWMHA
+https://www.youtube.com/watch?v=651EoGQHWck
+https://www.youtube.com/watch?v=H-gkysrJjAc
+https://www.youtube.com/watch?v=uorNEAr4nq8
+https://www.youtube.com/watch?v=DYAOaYU5EDU
+https://www.youtube.com/watch?v=UtReFcOLJx8&t=320s
+https://www.youtube.com/watch?v=44XjXkubukw
+https://www.youtube.com/watch?v=OJ4CzWyRQr4
+https://www.youtube.com/watch?v=QGpZmZB9g5g
+https://www.youtube.com/watch?v=dtHGJcNkaMo&t=140s
+https://www.youtube.com/watch?v=pfEGnnY66sw
+https://www.youtube.com/watch?v=NAZrSwcRON4&t=7s
+https://www.youtube.com/watch?v=znccADUUHxU
+https://www.youtube.com/watch?v=2HxWGHXyCt4&t=34s
+https://www.youtube.com/watch?v=qw0Y_NFo3kU&t=113s
+https://www.youtube.com/watch?v=Vh1hiVUSQgk
+https://www.youtube.com/watch?v=_VOmfJ4x-Fg
+https://www.youtube.com/watch?v=A1SPJSVra9I
+https://www.youtube.com/watch?v=AexZ8bTb1K4
+
+############## Tasmota Dimmers ##############
+https://templates.blakadder.com/armtronix_BA001.html
+https://templates.blakadder.com/armtronix_BA004.html
+https://templates.blakadder.com/qs-wifi_D01_dimmer.html
+https://templates.blakadder.com/cnskou_SK-W801T.html
+https://templates.blakadder.com/wifi_dimmer_switch.html
+https://templates.blakadder.com/evalogik_WF31.html
+https://templates.blakadder.com/teekar-UIW001-1.html
+https://templates.blakadder.com/zemismart-ks-7011.html
+https://templates.blakadder.com/sonoff_D1.html
+https://www.lamps-on-line.com/leading-trailing-edge-led-dimmers
+https://rbw.com/blog/leading-edge-vs-trailing-edge-dimming
+https://lamphq.com/trailing-edge-dimmers/
+https://www.electricalcounter.co.uk/types-of-dimmer
+https://www.youtube.com/watch?v=EDmXiG5AvSQ
+https://tasmota.github.io/docs/Peripherals/#control
+https://tasmota.github.io/docs/Components/
+https://tttapa.github.io/ESP8266/Chap04%20-%20Microcontroller.html
+https://smarthomeconnect.readthedocs.io/en/latest/interfaces/tasmota.html
+https://www.letscontrolit.com/forum/viewtopic.php?t=3245&start=300
+https://tasmota.github.io/docs/Templates/
+https://tasmota.github.io/docs/Commands/#serial-bridge
+https://tasmota.github.io/docs/GPIO-Conversion/#gpio-conversion
+https://tasmota.github.io/docs/devices/Armtronix-Dimmers/#software
+https://github.com/armtronix/Wifi-Single-Dimmer-Board/blob/master/Wifi-Single-Dimmer-Board/Document/A0004_Wifi_One_Dimmer_1A_Board.pdf
+https://github.com/phpcoder/tasmota-custom-integration/blob/main/tasmota/xdrv_102_my_project_ex3.ino
+https://www.youtube.com/watch?v=WashxTcHiDc
+
+############# Problems to Resolv ###############
+humming
+get back to original pin scheme 2-3,4-5-6-7,9,10-11-12,A0-A1-A2-A3-A4-A5 (unused 0RX-1TX,8,13,A6,A7)
+attach dimmer off -1 to all off all on function
+add button 5 of ir remtote to turn on and off triac spd[-1] as off spd[dimm_value], do not write epprom for this operation
+add 7 segment 595 display for speed
