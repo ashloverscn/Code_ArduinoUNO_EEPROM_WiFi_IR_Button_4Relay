@@ -280,14 +280,14 @@ void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      dimm_Up();
+      dimm_Dn();
       break;
   }
 }
 void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      dimm_Dn();
+      dimm_Up();
       break;
   }
 }
