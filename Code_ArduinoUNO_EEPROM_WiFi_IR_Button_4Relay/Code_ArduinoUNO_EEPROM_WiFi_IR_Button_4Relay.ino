@@ -218,7 +218,11 @@ void setup() {
   config3.setEventHandler(button3Handler);
   config4.setEventHandler(button4Handler);
   config5.setEventHandler(button5Handler);
+  config5.setFeature(ButtonConfig::kFeatureLongPress);
+  config5.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
   config6.setEventHandler(button6Handler);
+  config6.setFeature(ButtonConfig::kFeatureLongPress);
+  config6.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
   
   button1.init(SwitchPin1);
   button2.init(SwitchPin2);
@@ -280,6 +284,9 @@ void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 }
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
+    case AceButton::kEventLongPressed: 
+      triacOff(); 
+      break;
     case AceButton::kEventReleased:
       dimm_Dn();
       break;
@@ -287,6 +294,9 @@ void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 }
 void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
+    case AceButton::kEventLongPressed: 
+      triacOn(); 
+      break;
     case AceButton::kEventReleased:
       dimm_Up();
       break;
