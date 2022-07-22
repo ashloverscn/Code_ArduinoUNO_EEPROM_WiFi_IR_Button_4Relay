@@ -165,23 +165,23 @@ void ir_remote(){
 }
 
 void all_Switch_ON(){
-  digitalWrite(RelayPin1, LOW); EEPROM.update(0,LOW); delay(100);
-  digitalWrite(RelayPin2, LOW); EEPROM.update(1,LOW); delay(100);
-  digitalWrite(RelayPin3, LOW); EEPROM.update(2,LOW); delay(100);
-  digitalWrite(RelayPin4, LOW); EEPROM.update(3,LOW); delay(100);
-  triacOn();  delay(100);
-}
-
-void all_Switch_OFF(){
   digitalWrite(RelayPin1, HIGH); EEPROM.update(0,HIGH); delay(100);
   digitalWrite(RelayPin2, HIGH); EEPROM.update(1,HIGH); delay(100);
   digitalWrite(RelayPin3, HIGH); EEPROM.update(2,HIGH); delay(100);
   digitalWrite(RelayPin4, HIGH); EEPROM.update(3,HIGH); delay(100);
+  triacOn();  delay(100);
+}
+
+void all_Switch_OFF(){
+  digitalWrite(RelayPin1, LOW); EEPROM.update(0,LOW); delay(100);
+  digitalWrite(RelayPin2, LOW); EEPROM.update(1,LOW); delay(100);
+  digitalWrite(RelayPin3, LOW); EEPROM.update(2,LOW); delay(100);
+  digitalWrite(RelayPin4, LOW); EEPROM.update(3,LOW); delay(100);
   triacOff(); delay(100);
 }
 
 void sendStatus(){  
-  pinStatus = String(!digitalRead(RelayPin1)) + String(!digitalRead(RelayPin2)) + String(!digitalRead(RelayPin3)) + String(!digitalRead(RelayPin4));
+  pinStatus = String(digitalRead(RelayPin1)) + String(digitalRead(RelayPin2)) + String(digitalRead(RelayPin3)) + String(digitalRead(RelayPin4));
   Serial.println(pinStatus);
   Serial.println(dimm_value);
 }
@@ -208,10 +208,10 @@ void setup() {
   pinMode(SwitchPin6, INPUT_PULLUP);
 
   //During Starting all Relays should TURN OFF
-  digitalWrite(RelayPin1, HIGH);
-  digitalWrite(RelayPin2, HIGH);
-  digitalWrite(RelayPin3, HIGH);
-  digitalWrite(RelayPin4, HIGH);
+  digitalWrite(RelayPin1, LOW);
+  digitalWrite(RelayPin2, LOW);
+  digitalWrite(RelayPin3, LOW);
+  digitalWrite(RelayPin4, LOW);
 
   config1.setEventHandler(button1Handler);
   config2.setEventHandler(button2Handler);
