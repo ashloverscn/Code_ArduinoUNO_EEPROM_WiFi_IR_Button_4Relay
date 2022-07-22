@@ -32,6 +32,7 @@ using namespace ace_button;
 #define IR_Button_2   0x1FED827
 #define IR_Button_3   0x1FEF807
 #define IR_Button_4   0x1FE30CF
+#define IR_Button_5   0x1FEB04F
 #define IR_Button_Up   0x1FE609F
 #define IR_Button_Dn   0x1FEA05F
 #define IR_All_Off    0x1FE7887
@@ -106,11 +107,25 @@ void ir_remote(){
           case IR_Button_2:  relayOnOff(2);     break;
           case IR_Button_3:  relayOnOff(3);     break;
           case IR_Button_4:  relayOnOff(4);     break;
+          case IR_Button_5:
+             if(dimm_value == -1)
+             {
+              dimm_value = 13;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+              EEPROM.update(7, dimm_value);
+             }
+             else
+             {
+              dimm_value = -1;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+              EEPROM.update(7, dimm_value);
+             }
+          break;
           case IR_Button_Up:
           if(dimm_value<13)
             {
              dimm_value += 1;
-             atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+             atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
              EEPROM.update(7, dimm_value);
             }
           break;
@@ -118,7 +133,7 @@ void ir_remote(){
           if(dimm_value>=0)
             {
               dimm_value -= 1 ;
-              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
               EEPROM.update(7, dimm_value);        
             }
           break;
@@ -126,7 +141,7 @@ void ir_remote(){
           case IR_All_On:    all_Switch_ON();   break;
           default : break;         
         }   
-        //Serial.println(results.value, HEX);    
+        Serial.println(results.value, HEX);    
         irrecv.resume();   
   } 
 }
@@ -147,12 +162,12 @@ void all_Switch_OFF(){
 
 void sendStatus(){  
   pinStatus = String(digitalRead(RelayPin1)) + String(digitalRead(RelayPin2)) + String(digitalRead(RelayPin3)) + String(digitalRead(RelayPin4));
-  //Serial.println(pinStatus);
-  //Serial.println(dimm_value);
+  Serial.println(pinStatus);
+  Serial.println(dimm_value);
 }
 
 void setup() {
-  //Serial.begin(9600);
+  Serial.begin(9600);
   
   irrecv.enableIRIn(); // Start the receiver
 
@@ -202,7 +217,7 @@ void loop() {
 
   ir_remote();
 
-  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 13] or 623 to 1 
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
   
   button1.check();
   button2.check();
@@ -248,7 +263,7 @@ void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
       if(dimm_value>=0)
       {
         dimm_value -= 1;
-        atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+        atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
         EEPROM.update(7, dimm_value);        
       }
       break;
@@ -260,7 +275,7 @@ void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
       if(dimm_value<13)
       {
        dimm_value += 1;
-       atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//speed[0 to 19] or 0 to 360 through 400 
+       atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
        EEPROM.update(7, dimm_value);
       }
       break;
