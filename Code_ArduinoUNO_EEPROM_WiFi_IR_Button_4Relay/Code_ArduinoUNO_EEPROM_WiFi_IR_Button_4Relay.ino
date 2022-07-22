@@ -191,8 +191,6 @@ void setup() {
   
   irrecv.enableIRIn(); // Start the receiver
 
-  atmega328_16mhz_ac_phase_control.init(); //Initialize AC Phase dimmer
-  
   pinMode(RelayPin1, OUTPUT);
   pinMode(RelayPin2, OUTPUT);
   pinMode(RelayPin3, OUTPUT);
@@ -229,6 +227,8 @@ void setup() {
   
   delay(500);
   eepromState();
+  atmega328_16mhz_ac_phase_control.init(); //Initialize AC Phase dimmer
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
   // call the toggle_led function every 2000 millis (2 seconds)
   timer.every(2000, sendStatus);  
 }
@@ -236,9 +236,7 @@ void setup() {
 void loop() {
 
   ir_remote();
-
-  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
-  
+    
   button1.check();
   button2.check();
   button3.check();
