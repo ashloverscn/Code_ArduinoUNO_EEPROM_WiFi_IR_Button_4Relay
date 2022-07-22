@@ -181,7 +181,7 @@ void all_Switch_OFF(){
 }
 
 void sendStatus(){  
-  pinStatus = String(digitalRead(RelayPin1)) + String(digitalRead(RelayPin2)) + String(digitalRead(RelayPin3)) + String(digitalRead(RelayPin4));
+  pinStatus = String(!digitalRead(RelayPin1)) + String(!digitalRead(RelayPin2)) + String(!digitalRead(RelayPin3)) + String(!digitalRead(RelayPin4));
   Serial.println(pinStatus);
   Serial.println(dimm_value);
 }
