@@ -64,6 +64,51 @@ void handleEvent4(AceButton*, uint8_t, uint8_t);
 void handleEvent5(AceButton*, uint8_t, uint8_t);
 void handleEvent6(AceButton*, uint8_t, uint8_t);
 
+void dimm_Up(){
+  if(dimm_value<13)
+            {
+             dimm_value += 1;
+             atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
+             EEPROM.update(7, dimm_value);
+            }
+}
+
+void dimm_Dn(){
+  if(dimm_value>=0)
+            {
+              dimm_value -= 1 ;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
+              EEPROM.update(7, dimm_value);        
+            }
+}
+
+void triacOn(){
+    dimm_value = 13;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+    EEPROM.update(7, dimm_value);
+}
+
+void triacOff(){
+    dimm_value = -1;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+    EEPROM.update(7, dimm_value);
+}
+
+void triacOnOff(){
+    if(dimm_value == -1)
+             {
+              dimm_value = 13;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+              EEPROM.update(7, dimm_value);
+             }
+             else
+             {
+              dimm_value = -1;
+              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
+              EEPROM.update(7, dimm_value);
+             }
+}
+
 void relayOnOff(int relay){
  switch(relay){
       case 1:
@@ -107,36 +152,9 @@ void ir_remote(){
           case IR_Button_2:  relayOnOff(2);     break;
           case IR_Button_3:  relayOnOff(3);     break;
           case IR_Button_4:  relayOnOff(4);     break;
-          case IR_Button_5:
-             if(dimm_value == -1)
-             {
-              dimm_value = 13;
-              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
-              EEPROM.update(7, dimm_value);
-             }
-             else
-             {
-              dimm_value = -1;
-              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1
-              EEPROM.update(7, dimm_value);
-             }
-          break;
-          case IR_Button_Up:
-          if(dimm_value<13)
-            {
-             dimm_value += 1;
-             atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
-             EEPROM.update(7, dimm_value);
-            }
-          break;
-          case IR_Button_Dn:
-          if(dimm_value>=0)
-            {
-              dimm_value -= 1 ;
-              atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
-              EEPROM.update(7, dimm_value);        
-            }
-          break;
+          case IR_Button_5:  triacOnOff();      break;
+          case IR_Button_Up:  dimm_Up();        break;
+          case IR_Button_Dn:  dimm_Dn();        break;
           case IR_All_Off:   all_Switch_OFF();  break;
           case IR_All_On:    all_Switch_ON();   break;
           default : break;         
@@ -151,6 +169,7 @@ void all_Switch_ON(){
   digitalWrite(RelayPin2, LOW); EEPROM.update(1,LOW); delay(100);
   digitalWrite(RelayPin3, LOW); EEPROM.update(2,LOW); delay(100);
   digitalWrite(RelayPin4, LOW); EEPROM.update(3,LOW); delay(100);
+  triacOn();  delay(100);
 }
 
 void all_Switch_OFF(){
@@ -158,6 +177,7 @@ void all_Switch_OFF(){
   digitalWrite(RelayPin2, HIGH); EEPROM.update(1,HIGH); delay(100);
   digitalWrite(RelayPin3, HIGH); EEPROM.update(2,HIGH); delay(100);
   digitalWrite(RelayPin4, HIGH); EEPROM.update(3,HIGH); delay(100);
+  triacOff(); delay(100);
 }
 
 void sendStatus(){  
@@ -260,24 +280,14 @@ void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      if(dimm_value>=0)
-      {
-        dimm_value -= 1;
-        atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
-        EEPROM.update(7, dimm_value);        
-      }
+      dimm_Up();
       break;
   }
 }
 void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   switch (eventType) {
     case AceButton::kEventReleased:
-      if(dimm_value<13)
-      {
-       dimm_value += 1;
-       atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);//spd[-1 to 13] or 623 to 1 
-       EEPROM.update(7, dimm_value);
-      }
+      dimm_Dn();
       break;
   }
 }
