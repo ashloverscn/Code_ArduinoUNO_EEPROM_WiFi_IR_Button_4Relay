@@ -115,5 +115,4 @@ https://www.youtube.com/watch?v=WashxTcHiDc
 ############# Problems to Resolv ###############
 humming
 get back to original pin scheme 2-3,4-5-6-7,9,10-11-12,A0-A1-A2-A3-A4-A5 (unused 0RX-1TX,8,13,A6,A7)
-Ace Button long press speed Up Dn for ON OFF the Triac 
 add 7 segment 595 display for speed
