@@ -1,6 +1,6 @@
 ######### Dimmer_Module #########
 5 x resistor 330r,10k,1k,39r2w,100k4w
-4 x diode 1n4007
+4 x diode 1n4007 \ DB107 
 1 x capacitors 0.1uf-104j630v
 1 x optocoupler pc817
 1 x optotriac-driver moc3021
