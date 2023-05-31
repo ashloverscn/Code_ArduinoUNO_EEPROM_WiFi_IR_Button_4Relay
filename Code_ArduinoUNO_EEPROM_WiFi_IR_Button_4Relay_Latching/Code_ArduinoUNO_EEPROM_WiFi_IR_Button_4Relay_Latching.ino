@@ -169,7 +169,7 @@ void all_Switch_ON(){
   digitalWrite(RelayPin2, HIGH); EEPROM.update(1,HIGH); delay(100);
   digitalWrite(RelayPin3, HIGH); EEPROM.update(2,HIGH); delay(100);
   digitalWrite(RelayPin4, HIGH); EEPROM.update(3,HIGH); delay(100);
-  triacOn();  delay(100);
+  //triacOn();  delay(100);
 }
 
 void all_Switch_OFF(){
@@ -177,7 +177,7 @@ void all_Switch_OFF(){
   digitalWrite(RelayPin2, LOW); EEPROM.update(1,LOW); delay(100);
   digitalWrite(RelayPin3, LOW); EEPROM.update(2,LOW); delay(100);
   digitalWrite(RelayPin4, LOW); EEPROM.update(3,LOW); delay(100);
-  triacOff(); delay(100);
+  //triacOff(); delay(100);
 }
 
 void sendStatus(){  
