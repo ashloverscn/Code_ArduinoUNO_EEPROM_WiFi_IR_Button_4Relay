@@ -25,7 +25,7 @@ using namespace ace_button;
 #define SwitchPin6 A5  //A5
 
 #define ZeroCrossPin 2 //D2
-#define IR_RECV_PIN 4  //D3
+#define IR_RECV_PIN 3  //D3
 
 //Update the HEX code of IR Remote buttons 0x<HEX CODE>
 #define IR_Button_1   0x1FE50AF
