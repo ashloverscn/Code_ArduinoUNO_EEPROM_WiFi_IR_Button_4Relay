@@ -1,17 +1,13 @@
 #include <EEPROM.h>
-#include <IRremote.h>
+#include <IRremote.hpp>
 #include <AceButton.h>
 #include <arduino-timer.h>
 #include <atmega328_16mhz_ac_phase_control.h>
 
-using namespace ace_button;
-
-int spd[14] = {
-  600, 500, 480, 450, 400, 380, 350,
-  300, 250, 180, 150, 80, 50, 1
-};
+int spd[14]={600,500,480,450,400,380,350,300,250,180,150,80,50,1};
 
 auto timer = timer_create_default();
+using namespace ace_button;
 
 #define RelayPin1 5
 #define RelayPin2 6
@@ -29,157 +25,114 @@ auto timer = timer_create_default();
 #define ZeroCrossPin 2
 #define IR_RECV_PIN 3
 
-#define IR_Button_1  0x1FE50AF
-#define IR_Button_2  0x1FED827
-#define IR_Button_3  0x1FEF807
-#define IR_Button_4  0x1FE30CF
-#define IR_Button_5  0x1FEB04F
-#define IR_Button_Up 0x1FE609F
-#define IR_Button_Dn 0x1FEA05F
-#define IR_All_Off   0x1FE7887
-#define IR_All_On    0x1FE48B7
-
-#define EEPROM_RELAY1 0
-#define EEPROM_RELAY2 1
-#define EEPROM_RELAY3 2
-#define EEPROM_RELAY4 3
-
-#define EEPROM_DIMMER 7
-#define EEPROM_TRIAC_STATE 8
-
-#define DIMMER_MIN 0
-#define DIMMER_MAX 13
-
-IRrecv irrecv(IR_RECV_PIN);
-decode_results results;
+#define IR_Button_1   0xF50A7F80
+#define IR_Button_2   0xE41B7F80
+#define IR_Button_3   0xE01F7F80
+#define IR_Button_4   0xF30C7F80
+#define IR_Button_5   0xF20D7F80
+#define IR_Button_Up  0xF9067F80
+#define IR_Button_Dn  0xFA057F80
+#define IR_All_Off    0xE11E7F80
+#define IR_All_On     0xED127F80
 
 String pinStatus = "0000";
-
-uint8_t dimm_value = 0;
-bool triacState = false;
+int dimm_value = 0;
 
 ButtonConfig config1;
-ButtonConfig config2;
-ButtonConfig config3;
-ButtonConfig config4;
-ButtonConfig config5;
-ButtonConfig config6;
-
 AceButton button1(&config1);
+ButtonConfig config2;
 AceButton button2(&config2);
+ButtonConfig config3;
 AceButton button3(&config3);
+ButtonConfig config4;
 AceButton button4(&config4);
+ButtonConfig config5;
 AceButton button5(&config5);
+ButtonConfig config6;
 AceButton button6(&config6);
 
-void button1Handler(AceButton*, uint8_t, uint8_t);
-void button2Handler(AceButton*, uint8_t, uint8_t);
-void button3Handler(AceButton*, uint8_t, uint8_t);
-void button4Handler(AceButton*, uint8_t, uint8_t);
-void button5Handler(AceButton*, uint8_t, uint8_t);
-void button6Handler(AceButton*, uint8_t, uint8_t);
-
-void all_Switch_ON();
-void all_Switch_OFF();
-
-void applyDimmer()
-{
-  if (triacState) {
-    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
-  } else {
-    atmega328_16mhz_ac_phase_control.set_ac_power(0);
-  }
-}
+void handleEvent1(AceButton*, uint8_t, uint8_t);
+void handleEvent2(AceButton*, uint8_t, uint8_t);
+void handleEvent3(AceButton*, uint8_t, uint8_t);
+void handleEvent4(AceButton*, uint8_t, uint8_t);
+void handleEvent5(AceButton*, uint8_t, uint8_t);
+void handleEvent6(AceButton*, uint8_t, uint8_t);
 
 void dimm_Up()
 {
-  if (!triacState) {
-    triacState = true;
+  if(dimm_value<13)
+  {
+    dimm_value += 1;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+    EEPROM.update(7, dimm_value);
   }
-
-  if (dimm_value < DIMMER_MAX) {
-    dimm_value++;
-  }
-
-  applyDimmer();
-
-  EEPROM.update(EEPROM_DIMMER, dimm_value);
-  EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
 }
 
 void dimm_Dn()
 {
-  if (!triacState) {
-    return;
+  if(dimm_value>=0)
+  {
+    dimm_value -= 1;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+    EEPROM.update(7, dimm_value);
   }
-
-  if (dimm_value > DIMMER_MIN) {
-    dimm_value--;
-  }
-
-  applyDimmer();
-
-  EEPROM.update(EEPROM_DIMMER, dimm_value);
-  EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
 }
 
 void triacOn()
 {
-  triacState = true;
-
-  if (dimm_value > DIMMER_MAX) {
-    dimm_value = DIMMER_MAX;
-  }
-
-  applyDimmer();
-
-  EEPROM.update(EEPROM_DIMMER, dimm_value);
-  EEPROM.update(EEPROM_TRIAC_STATE, 1);
+  dimm_value = 13;
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+  EEPROM.update(7, dimm_value);
 }
 
 void triacOff()
 {
-  triacState = false;
-
-  atmega328_16mhz_ac_phase_control.set_ac_power(0);
-
-  EEPROM.update(EEPROM_TRIAC_STATE, 0);
+  dimm_value = -1;
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+  EEPROM.update(7, dimm_value);
 }
 
 void triacOnOff()
 {
-  if (triacState) {
-    triacOff();
-  } else {
-    triacOn();
+  if(dimm_value == -1)
+  {
+    dimm_value = 13;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+    EEPROM.update(7, dimm_value);
+  }
+  else
+  {
+    dimm_value = -1;
+    atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
+    EEPROM.update(7, dimm_value);
   }
 }
 
 void relayOnOff(int relay)
 {
-  switch (relay) {
-
+  switch(relay)
+  {
     case 1:
       digitalWrite(RelayPin1, !digitalRead(RelayPin1));
-      EEPROM.update(EEPROM_RELAY1, digitalRead(RelayPin1));
+      EEPROM.update(0,digitalRead(RelayPin1));
       delay(100);
       break;
 
     case 2:
       digitalWrite(RelayPin2, !digitalRead(RelayPin2));
-      EEPROM.update(EEPROM_RELAY2, digitalRead(RelayPin2));
+      EEPROM.update(1,digitalRead(RelayPin2));
       delay(100);
       break;
 
     case 3:
       digitalWrite(RelayPin3, !digitalRead(RelayPin3));
-      EEPROM.update(EEPROM_RELAY3, digitalRead(RelayPin3));
+      EEPROM.update(2,digitalRead(RelayPin3));
       delay(100);
       break;
 
     case 4:
       digitalWrite(RelayPin4, !digitalRead(RelayPin4));
-      EEPROM.update(EEPROM_RELAY4, digitalRead(RelayPin4));
+      EEPROM.update(3,digitalRead(RelayPin4));
       delay(100);
       break;
 
@@ -190,143 +143,112 @@ void relayOnOff(int relay)
 
 void eepromState()
 {
-  uint8_t relay1 = EEPROM.read(EEPROM_RELAY1);
-  uint8_t relay2 = EEPROM.read(EEPROM_RELAY2);
-  uint8_t relay3 = EEPROM.read(EEPROM_RELAY3);
-  uint8_t relay4 = EEPROM.read(EEPROM_RELAY4);
+  digitalWrite(RelayPin1, EEPROM.read(0));
+  delay(200);
 
-  if (relay1 > 1) {
-    relay1 = LOW;
-  }
+  digitalWrite(RelayPin2, EEPROM.read(1));
+  delay(200);
 
-  if (relay2 > 1) {
-    relay2 = LOW;
-  }
+  digitalWrite(RelayPin3, EEPROM.read(2));
+  delay(200);
 
-  if (relay3 > 1) {
-    relay3 = LOW;
-  }
+  digitalWrite(RelayPin4, EEPROM.read(3));
+  delay(200);
 
-  if (relay4 > 1) {
-    relay4 = LOW;
-  }
-
-  digitalWrite(RelayPin1, relay1);
-  delay(50);
-
-  digitalWrite(RelayPin2, relay2);
-  delay(50);
-
-  digitalWrite(RelayPin3, relay3);
-  delay(50);
-
-  digitalWrite(RelayPin4, relay4);
-  delay(50);
-
-  uint8_t storedDimmer = EEPROM.read(EEPROM_DIMMER);
-
-  if (storedDimmer <= DIMMER_MAX) {
-    dimm_value = storedDimmer;
-  } else {
-    dimm_value = DIMMER_MAX;
-  }
-
-  uint8_t storedTriacState = EEPROM.read(EEPROM_TRIAC_STATE);
-
-  if (storedTriacState == 1) {
-    triacState = true;
-  } else {
-    triacState = false;
-  }
-
-  applyDimmer();
+  dimm_value = EEPROM.read(7);
+  delay(200);
 }
 
 void ir_remote()
 {
-  if (irrecv.decode(&results)) {
+  if(IrReceiver.decode())
+  {
+    uint32_t code = IrReceiver.decodedIRData.decodedRawData;
 
-    switch (results.value) {
+    if(!(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT))
+    {
+      switch(code)
+      {
+        case IR_Button_1:
+          relayOnOff(1);
+          break;
 
-      case IR_Button_1:
-        relayOnOff(1);
-        break;
+        case IR_Button_2:
+          relayOnOff(2);
+          break;
 
-      case IR_Button_2:
-        relayOnOff(2);
-        break;
+        case IR_Button_3:
+          relayOnOff(3);
+          break;
 
-      case IR_Button_3:
-        relayOnOff(3);
-        break;
+        case IR_Button_4:
+          relayOnOff(4);
+          break;
 
-      case IR_Button_4:
-        relayOnOff(4);
-        break;
+        case IR_Button_5:
+          triacOnOff();
+          break;
 
-      case IR_Button_5:
-        triacOnOff();
-        break;
+        case IR_Button_Up:
+          dimm_Up();
+          break;
 
-      case IR_Button_Up:
-        dimm_Up();
-        break;
+        case IR_Button_Dn:
+          dimm_Dn();
+          break;
 
-      case IR_Button_Dn:
-        dimm_Dn();
-        break;
+        case IR_All_Off:
+          all_Switch_OFF();
+          break;
 
-      case IR_All_Off:
-        all_Switch_OFF();
-        break;
+        case IR_All_On:
+          all_Switch_ON();
+          break;
 
-      case IR_All_On:
-        all_Switch_ON();
-        break;
-
-      default:
-        break;
+        default:
+          break;
+      }
     }
 
-    irrecv.resume();
+    IrReceiver.resume();
   }
 }
 
 void all_Switch_ON()
 {
   digitalWrite(RelayPin1, HIGH);
-  EEPROM.update(EEPROM_RELAY1, HIGH);
+  EEPROM.update(0,HIGH);
   delay(100);
 
   digitalWrite(RelayPin2, HIGH);
-  EEPROM.update(EEPROM_RELAY2, HIGH);
+  EEPROM.update(1,HIGH);
   delay(100);
 
   digitalWrite(RelayPin3, HIGH);
-  EEPROM.update(EEPROM_RELAY3, HIGH);
+  EEPROM.update(2,HIGH);
   delay(100);
 
   digitalWrite(RelayPin4, HIGH);
-  EEPROM.update(EEPROM_RELAY4, HIGH);
+  EEPROM.update(3,HIGH);
   delay(100);
 }
 
 void all_Switch_OFF()
 {
   digitalWrite(RelayPin1, LOW);
-  EEPROM.update(EEPROM_RELAY1, LOW);
+  EEPROM.update(0,LOW);
   delay(100);
 
   digitalWrite(RelayPin2, LOW);
-  EEPROM.update(EEPROM_RELAY2, LOW);
+  EEPROM.update(1,LOW);
   delay(100);
 
   digitalWrite(RelayPin3, LOW);
-  EEPROM.update(EEPROM_RELAY3, LOW);
+  EEPROM.update(2,LOW);
   delay(100);
 
   digitalWrite(RelayPin4, LOW);
-  EEPROM.update(EEPROM_RELAY4, LOW);
+  EEPROM.update(3,LOW);
   delay(100);
 }
 
@@ -341,17 +263,17 @@ void sendStatus()
 
 void setup()
 {
-  irrecv.enableIRIn();
+  IrReceiver.begin(IR_RECV_PIN, ENABLE_LED_FEEDBACK);
+
+  atmega328_16mhz_ac_phase_control.init();
 
   pinMode(RelayPin1, OUTPUT);
   pinMode(RelayPin2, OUTPUT);
   pinMode(RelayPin3, OUTPUT);
   pinMode(RelayPin4, OUTPUT);
-
-  pinMode(TriacPin, OUTPUT);
+  pinMode(TriacPin,OUTPUT);
 
   pinMode(ZeroCrossPin, INPUT_PULLUP);
-
   pinMode(SwitchPin1, INPUT_PULLUP);
   pinMode(SwitchPin2, INPUT_PULLUP);
   pinMode(SwitchPin3, INPUT_PULLUP);
@@ -363,20 +285,17 @@ void setup()
   digitalWrite(RelayPin2, LOW);
   digitalWrite(RelayPin3, LOW);
   digitalWrite(RelayPin4, LOW);
-  digitalWrite(TriacPin, LOW);
-
-  atmega328_16mhz_ac_phase_control.init();
 
   config1.setEventHandler(button1Handler);
   config2.setEventHandler(button2Handler);
   config3.setEventHandler(button3Handler);
   config4.setEventHandler(button4Handler);
-  config5.setEventHandler(button5Handler);
-  config6.setEventHandler(button6Handler);
 
+  config5.setEventHandler(button5Handler);
   config5.setFeature(ButtonConfig::kFeatureLongPress);
   config5.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
 
+  config6.setEventHandler(button6Handler);
   config6.setFeature(ButtonConfig::kFeatureLongPress);
   config6.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
 
@@ -390,6 +309,8 @@ void setup()
   delay(500);
 
   eepromState();
+
+  atmega328_16mhz_ac_phase_control.set_ac_power(spd[dimm_value]);
 
   timer.every(2000, sendStatus);
 }
@@ -408,50 +329,98 @@ void loop()
   timer.tick();
 }
 
-void button1Handler(AceButton*, uint8_t eventType, uint8_t)
+void button1Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) {
-    relayOnOff(1);
+  switch(eventType)
+  {
+    case AceButton::kEventPressed:
+      relayOnOff(1);
+      break;
+  }
+
+  switch(eventType)
+  {
+    case AceButton::kEventReleased:
+      relayOnOff(1);
+      break;
   }
 }
 
-void button2Handler(AceButton*, uint8_t eventType, uint8_t)
+void button2Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) {
-    relayOnOff(2);
+  switch(eventType)
+  {
+    case AceButton::kEventPressed:
+      relayOnOff(2);
+      break;
+  }
+
+  switch(eventType)
+  {
+    case AceButton::kEventReleased:
+      relayOnOff(2);
+      break;
   }
 }
 
-void button3Handler(AceButton*, uint8_t eventType, uint8_t)
+void button3Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) {
-    relayOnOff(3);
+  switch(eventType)
+  {
+    case AceButton::kEventPressed:
+      relayOnOff(3);
+      break;
+  }
+
+  switch(eventType)
+  {
+    case AceButton::kEventReleased:
+      relayOnOff(3);
+      break;
   }
 }
 
-void button4Handler(AceButton*, uint8_t eventType, uint8_t)
+void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) {
-    relayOnOff(4);
+  switch(eventType)
+  {
+    case AceButton::kEventPressed:
+      relayOnOff(4);
+      break;
+  }
+
+  switch(eventType)
+  {
+    case AceButton::kEventReleased:
+      relayOnOff(4);
+      break;
   }
 }
 
-void button5Handler(AceButton*, uint8_t eventType, uint8_t)
+void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) {
-    triacOnOff();
-  }
-}
+  switch(eventType)
+  {
+    case AceButton::kEventLongPressed:
+      triacOff();
+      break;
 
-void button6Handler(AceButton*, uint8_t eventType, uint8_t)
-{
-  if (eventType == AceButton::kEventReleased) {
-    if (triacState) {
+    case AceButton::kEventReleased:
       dimm_Dn();
-    }
+      break;
   }
+}
 
-  if (eventType == AceButton::kEventLongPressed) {
-    dimm_Dn();
+void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
+{
+  switch(eventType)
+  {
+    case AceButton::kEventLongPressed:
+      triacOn();
+      break;
+
+    case AceButton::kEventReleased:
+      dimm_Up();
+      break;
   }
 }
