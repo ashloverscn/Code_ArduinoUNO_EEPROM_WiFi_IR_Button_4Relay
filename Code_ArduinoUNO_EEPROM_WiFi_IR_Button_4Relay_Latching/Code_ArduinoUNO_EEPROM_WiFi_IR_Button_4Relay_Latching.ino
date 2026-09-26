@@ -1,9 +1,3 @@
-#include <EEPROM.h>
-#include <AceButton.h>
-#include <IRremote.h>
-#include <arduino-timer.h>
-#include <atmega328_16mhz_ac_phase_control.h>
-
 using namespace ace_button;
 
 const uint16_t spd[14] = {
@@ -79,6 +73,7 @@ void button6Handler(AceButton*, uint8_t, uint8_t);
 void all_Switch_ON();
 void all_Switch_OFF();
 void sendTasmotaStatus(int relayNum, bool state);
+void sendTriacTasmotaStatus(bool state);
 
 void applyDimmer()
 {
@@ -126,6 +121,7 @@ void setDimmerLevel(uint8_t val)
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
+  sendTriacTasmotaStatus(triacState);
 }
 
 void triacOn()
@@ -135,6 +131,7 @@ void triacOn()
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
+  sendTriacTasmotaStatus(true);
 }
 
 void triacOff()
@@ -142,6 +139,7 @@ void triacOff()
   triacState = false;
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
   EEPROM.update(EEPROM_TRIAC_STATE, 0);
+  sendTriacTasmotaStatus(false);
 }
 
 void triacOnOff()
@@ -192,6 +190,13 @@ void sendTasmotaStatus(int relayNum, bool state)
   Serial.print("{\"POWER");
   Serial.print(relayNum);
   Serial.print("\":\"");
+  Serial.print(state ? "ON" : "OFF");
+  Serial.println("\"}");
+}
+
+void sendTriacTasmotaStatus(bool state)
+{
+  Serial.print("{\"POWER5\":\"");
   Serial.print(state ? "ON" : "OFF");
   Serial.println("\"}");
 }
@@ -290,7 +295,7 @@ void handleSerialControl()
 
       if (inputBuffer.length() > 0)
       {
-        // Parse JSON style commands like {"POWER3":"OFF"} or {"POWER1":"ON"}
+        // Parse JSON style commands like {"POWER3":"OFF"} or {"DIMM_UP":""}
         if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
         {
           for (int i = 1; i <= 4; i++)
@@ -308,6 +313,31 @@ void handleSerialControl()
               setRelayState(i, false);
               break;
             }
+          }
+
+          if (inputBuffer == "{\"POWER5\":\"ON\"}" || inputBuffer == "{\"TRIAC\":\"ON\"}")
+          {
+            triacOn();
+          }
+          else if (inputBuffer == "{\"POWER5\":\"OFF\"}" || inputBuffer == "{\"TRIAC\":\"OFF\"}")
+          {
+            triacOff();
+          }
+          else if (inputBuffer == "{\"IR_UP\":\"\"}" || inputBuffer == "{\"DIMM_UP\":\"\"}")
+          {
+            dimm_Up();
+          }
+          else if (inputBuffer == "{\"IR_DN\":\"\"}" || inputBuffer == "{\"DIMM_DN\":\"\"}")
+          {
+            dimm_Dn();
+          }
+          else if (inputBuffer == "{\"ALL_ON\":\"\"}" || inputBuffer == "{\"POWER\":\"ALL_ON\"}")
+          {
+            all_Switch_ON();
+          }
+          else if (inputBuffer == "{\"ALL_OFF\":\"\"}" || inputBuffer == "{\"POWER\":\"ALL_OFF\"}")
+          {
+            all_Switch_OFF();
           }
         }
         // Parse text-style commands
@@ -342,6 +372,22 @@ void handleSerialControl()
         else if (inputBuffer == "POWER4 OFF" || inputBuffer == "R4_OFF")
         {
           setRelayState(4, false);
+        }
+        else if (inputBuffer == "POWER5 ON" || inputBuffer == "TRIAC ON")
+        {
+          triacOn();
+        }
+        else if (inputBuffer == "POWER5 OFF" || inputBuffer == "TRIAC OFF")
+        {
+          triacOff();
+        }
+        else if (inputBuffer == "DIMM_UP" || inputBuffer == "IR_UP")
+        {
+          dimm_Up();
+        }
+        else if (inputBuffer == "DIMM_DN" || inputBuffer == "IR_DN")
+        {
+          dimm_Dn();
         }
         else if (inputBuffer.startsWith("DIMMER "))
         {
