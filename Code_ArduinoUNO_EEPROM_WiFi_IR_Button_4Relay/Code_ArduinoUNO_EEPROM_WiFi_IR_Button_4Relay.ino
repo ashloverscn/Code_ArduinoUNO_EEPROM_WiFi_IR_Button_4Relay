@@ -339,7 +339,28 @@ void handleSerialControl()
 
       if (inputBuffer.length() > 0)
       {
-        if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
+        // JSON format support (e.g., {"POWER3":"OFF"})
+        if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
+        {
+          for (int i = 1; i <= 4; i++)
+          {
+            String targetOn = "{\"POWER" + String(i) + "\":\"ON\"}";
+            String targetOff = "{\"POWER" + String(i) + "\":\"OFF\"}";
+
+            if (inputBuffer == targetOn)
+            {
+              setRelayState(i, true);
+              break;
+            }
+            else if (inputBuffer == targetOff)
+            {
+              setRelayState(i, false);
+              break;
+            }
+          }
+        }
+        // Standard text commands
+        else if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
         {
           setRelayState(1, true);
         }
