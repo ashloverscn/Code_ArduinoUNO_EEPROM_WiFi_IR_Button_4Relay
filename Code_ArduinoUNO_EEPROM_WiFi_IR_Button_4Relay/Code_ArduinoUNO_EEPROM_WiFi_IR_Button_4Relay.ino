@@ -1,6 +1,6 @@
 #include <EEPROM.h>
-#include <IRremote.hpp>
 #include <AceButton.h>
+#include <IRremote.h>
 #include <arduino-timer.h>
 #include <atmega328_16mhz_ac_phase_control.h>
 
@@ -50,6 +50,7 @@ auto timer = timer_create_default();
 #define DIMMER_MAX 13
 
 String pinStatus = "0000";
+String inputBuffer;
 
 uint8_t dimm_value = 0;
 bool triacState = false;
@@ -77,6 +78,7 @@ void button6Handler(AceButton*, uint8_t, uint8_t);
 
 void all_Switch_ON();
 void all_Switch_OFF();
+void sendTasmotaStatus(int relayNum, bool state);
 
 void applyDimmer()
 {
@@ -122,6 +124,16 @@ void dimm_Dn()
   EEPROM.update(EEPROM_DIMMER, dimm_value);
 }
 
+void setDimmerLevel(uint8_t val)
+{
+  if (val > DIMMER_MAX) val = DIMMER_MAX;
+  dimm_value = val;
+  triacState = (dimm_value > 0);
+  applyDimmer();
+  EEPROM.update(EEPROM_DIMMER, dimm_value);
+  EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
+}
+
 void triacOn()
 {
   triacState = true;
@@ -155,37 +167,50 @@ void triacOnOff()
   }
 }
 
-void relayOnOff(int relay)
+// Active-Low logic: turnOn = true sets pin LOW (Relay ON)
+void setRelayState(int relay, bool turnOn)
 {
+  int pin = 0;
+  int eepromAddress = 0;
+
   switch (relay)
   {
-    case 1:
-      digitalWrite(RelayPin1, !digitalRead(RelayPin1));
-      EEPROM.update(EEPROM_RELAY1, digitalRead(RelayPin1));
-      delay(100);
-      break;
-
-    case 2:
-      digitalWrite(RelayPin2, !digitalRead(RelayPin2));
-      EEPROM.update(EEPROM_RELAY2, digitalRead(RelayPin2));
-      delay(100);
-      break;
-
-    case 3:
-      digitalWrite(RelayPin3, !digitalRead(RelayPin3));
-      EEPROM.update(EEPROM_RELAY3, digitalRead(RelayPin3));
-      delay(100);
-      break;
-
-    case 4:
-      digitalWrite(RelayPin4, !digitalRead(RelayPin4));
-      EEPROM.update(EEPROM_RELAY4, digitalRead(RelayPin4));
-      delay(100);
-      break;
-
-    default:
-      break;
+    case 1: pin = RelayPin1; eepromAddress = EEPROM_RELAY1; break;
+    case 2: pin = RelayPin2; eepromAddress = EEPROM_RELAY2; break;
+    case 3: pin = RelayPin3; eepromAddress = EEPROM_RELAY3; break;
+    case 4: pin = RelayPin4; eepromAddress = EEPROM_RELAY4; break;
+    default: return;
   }
+
+  digitalWrite(pin, turnOn ? LOW : HIGH);
+  EEPROM.update(eepromAddress, turnOn ? HIGH : LOW);
+  sendTasmotaStatus(relay, turnOn);
+  delay(50);
+}
+
+void relayToggle(int relay)
+{
+  int pin = 0;
+  switch (relay)
+  {
+    case 1: pin = RelayPin1; break;
+    case 2: pin = RelayPin2; break;
+    case 3: pin = RelayPin3; break;
+    case 4: pin = RelayPin4; break;
+    default: return;
+  }
+
+  bool currentState = (digitalRead(pin) == LOW); // Currently ON if LOW
+  setRelayState(relay, !currentState);
+}
+
+void sendTasmotaStatus(int relayNum, bool state)
+{
+  Serial.print("{\"POWER");
+  Serial.print(relayNum);
+  Serial.print("\":\"");
+  Serial.print(state ? "ON" : "OFF");
+  Serial.println("\"}");
 }
 
 void eepromState()
@@ -200,13 +225,13 @@ void eepromState()
   if (relay3 > 1) relay3 = LOW;
   if (relay4 > 1) relay4 = LOW;
 
-  digitalWrite(RelayPin1, relay1);
+  digitalWrite(RelayPin1, relay1 == HIGH ? LOW : HIGH);
   delay(50);
-  digitalWrite(RelayPin2, relay2);
+  digitalWrite(RelayPin2, relay2 == HIGH ? LOW : HIGH);
   delay(50);
-  digitalWrite(RelayPin3, relay3);
+  digitalWrite(RelayPin3, relay3 == HIGH ? LOW : HIGH);
   delay(50);
-  digitalWrite(RelayPin4, relay4);
+  digitalWrite(RelayPin4, relay4 == HIGH ? LOW : HIGH);
   delay(50);
 
   uint8_t storedDimmer = EEPROM.read(EEPROM_DIMMER);
@@ -243,16 +268,16 @@ void ir_remote()
       switch (code)
       {
         case IR_Button_1:
-          relayOnOff(1);
+          relayToggle(1);
           break;
         case IR_Button_2:
-          relayOnOff(2);
+          relayToggle(2);
           break;
         case IR_Button_3:
-          relayOnOff(3);
+          relayToggle(3);
           break;
         case IR_Button_4:
-          relayOnOff(4);
+          relayToggle(4);
           break;
         case IR_Button_5:
           triacOnOff();
@@ -279,46 +304,107 @@ void ir_remote()
 
 void all_Switch_ON()
 {
-  digitalWrite(RelayPin1, HIGH);
-  EEPROM.update(EEPROM_RELAY1, HIGH);
-  delay(100);
-  digitalWrite(RelayPin2, HIGH);
-  EEPROM.update(EEPROM_RELAY2, HIGH);
-  delay(100);
-  digitalWrite(RelayPin3, HIGH);
-  EEPROM.update(EEPROM_RELAY3, HIGH);
-  delay(100);
-  digitalWrite(RelayPin4, HIGH);
-  EEPROM.update(EEPROM_RELAY4, HIGH);
-  delay(100);
+  setRelayState(1, true);
+  setRelayState(2, true);
+  setRelayState(3, true);
+  setRelayState(4, true);
 }
 
 void all_Switch_OFF()
 {
-  digitalWrite(RelayPin1, LOW);
-  EEPROM.update(EEPROM_RELAY1, LOW);
-  delay(100);
-  digitalWrite(RelayPin2, LOW);
-  EEPROM.update(EEPROM_RELAY2, LOW);
-  delay(100);
-  digitalWrite(RelayPin3, LOW);
-  EEPROM.update(EEPROM_RELAY3, LOW);
-  delay(100);
-  digitalWrite(RelayPin4, LOW);
-  EEPROM.update(EEPROM_RELAY4, LOW);
-  delay(100);
+  setRelayState(1, false);
+  setRelayState(2, false);
+  setRelayState(3, false);
+  setRelayState(4, false);
 }
 
 void sendStatus()
 {
-  pinStatus = String(digitalRead(RelayPin1)) +
-              String(digitalRead(RelayPin2)) +
-              String(digitalRead(RelayPin3)) +
-              String(digitalRead(RelayPin4));
+  pinStatus = String(digitalRead(RelayPin1) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin2) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin3) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin4) == LOW ? "1" : "0");
+}
+
+void handleSerialControl()
+{
+  while (Serial.available() > 0)
+  {
+    char incomingChar = (char)Serial.read();
+
+    if (incomingChar == '\n' || incomingChar == '\r')
+    {
+      inputBuffer.trim();
+      inputBuffer.toUpperCase();
+
+      if (inputBuffer.length() > 0)
+      {
+        if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
+        {
+          setRelayState(1, true);
+        }
+        else if (inputBuffer == "POWER1 OFF" || inputBuffer == "R1_OFF")
+        {
+          setRelayState(1, false);
+        }
+        else if (inputBuffer == "POWER2 ON" || inputBuffer == "R2_ON")
+        {
+          setRelayState(2, true);
+        }
+        else if (inputBuffer == "POWER2 OFF" || inputBuffer == "R2_OFF")
+        {
+          setRelayState(2, false);
+        }
+        else if (inputBuffer == "POWER3 ON" || inputBuffer == "R3_ON")
+        {
+          setRelayState(3, true);
+        }
+        else if (inputBuffer == "POWER3 OFF" || inputBuffer == "R3_OFF")
+        {
+          setRelayState(3, false);
+        }
+        else if (inputBuffer == "POWER4 ON" || inputBuffer == "R4_ON")
+        {
+          setRelayState(4, true);
+        }
+        else if (inputBuffer == "POWER4 OFF" || inputBuffer == "R4_OFF")
+        {
+          setRelayState(4, false);
+        }
+        else if (inputBuffer.startsWith("DIMMER "))
+        {
+          int val = inputBuffer.substring(7).toInt();
+          setDimmerLevel(val);
+        }
+        else if (inputBuffer == "ALL_ON" || inputBuffer == "POWER ALL ON")
+        {
+          all_Switch_ON();
+        }
+        else if (inputBuffer == "ALL_OFF" || inputBuffer == "POWER ALL OFF")
+        {
+          all_Switch_OFF();
+        }
+        else if (inputBuffer == "STATUS")
+        {
+          sendStatus();
+          Serial.println(pinStatus);
+        }
+      }
+
+      inputBuffer = "";
+    }
+    else
+    {
+      inputBuffer += incomingChar;
+    }
+  }
 }
 
 void setup()
 {
+  Serial.begin(115200);
+  inputBuffer.reserve(128);
+
   IrReceiver.begin(IR_RECV_PIN, ENABLE_LED_FEEDBACK);
 
   pinMode(RelayPin1, OUTPUT);
@@ -335,10 +421,10 @@ void setup()
   pinMode(SwitchPin5, INPUT_PULLUP);
   pinMode(SwitchPin6, INPUT_PULLUP);
 
-  digitalWrite(RelayPin1, LOW);
-  digitalWrite(RelayPin2, LOW);
-  digitalWrite(RelayPin3, LOW);
-  digitalWrite(RelayPin4, LOW);
+  digitalWrite(RelayPin1, HIGH);
+  digitalWrite(RelayPin2, HIGH);
+  digitalWrite(RelayPin3, HIGH);
+  digitalWrite(RelayPin4, HIGH);
   digitalWrite(TriacPin, LOW);
 
   atmega328_16mhz_ac_phase_control.init();
@@ -372,6 +458,7 @@ void setup()
 void loop()
 {
   ir_remote();
+  handleSerialControl();
 
   button1.check();
   button2.check();
@@ -385,22 +472,22 @@ void loop()
 
 void button1Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) relayOnOff(1);
+  if (eventType == AceButton::kEventReleased) relayToggle(1);
 }
 
 void button2Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) relayOnOff(2);
+  if (eventType == AceButton::kEventReleased) relayToggle(2);
 }
 
 void button3Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) relayOnOff(3);
+  if (eventType == AceButton::kEventReleased) relayToggle(3);
 }
 
 void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if (eventType == AceButton::kEventReleased) relayOnOff(4);
+  if (eventType == AceButton::kEventReleased) relayToggle(4);
 }
 
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
