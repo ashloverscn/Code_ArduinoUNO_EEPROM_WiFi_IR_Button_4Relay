@@ -39,11 +39,11 @@ auto timer = timer_create_default();
 #define IR_All_Off     0xED127F80
 #define IR_All_On      0xE11E7F80
 
-#define EEPROM_RELAY1   0
-#define EEPROM_RELAY2   1
-#define EEPROM_RELAY3   2
-#define EEPROM_RELAY4   3
-#define EEPROM_DIMMER   7
+#define EEPROM_RELAY1      0
+#define EEPROM_RELAY2      1
+#define EEPROM_RELAY3      2
+#define EEPROM_RELAY4      3
+#define EEPROM_DIMMER      7
 #define EEPROM_TRIAC_STATE 8
 
 #define DIMMER_MIN 0
@@ -150,12 +150,12 @@ void triacOnOff()
   else triacOn();
 }
 
-// Active-Low relay control: LOW = ON, HIGH = OFF
+// Active-Low logic: turnOn = true sets pin LOW (Relay ON)
 void setRelayState(int relay, bool turnOn)
 {
   int pin = 0;
   int eepromAddress = 0;
-  
+
   switch (relay)
   {
     case 1: pin = RelayPin1; eepromAddress = EEPROM_RELAY1; break;
@@ -249,7 +249,6 @@ void ir_remote()
         default: break;
       }
     }
-
     IrReceiver.resume();
   }
 }
@@ -272,11 +271,10 @@ void all_Switch_OFF()
 
 void sendStatus()
 {
-  pinStatus =
-    String(digitalRead(RelayPin1) == LOW ? "1" : "0") +
-    String(digitalRead(RelayPin2) == LOW ? "1" : "0") +
-    String(digitalRead(RelayPin3) == LOW ? "1" : "0") +
-    String(digitalRead(RelayPin4) == LOW ? "1" : "0");
+  pinStatus = String(digitalRead(RelayPin1) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin2) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin3) == LOW ? "1" : "0") +
+              String(digitalRead(RelayPin4) == LOW ? "1" : "0");
 }
 
 void handleSerialControl()
@@ -292,7 +290,28 @@ void handleSerialControl()
 
       if (inputBuffer.length() > 0)
       {
-        if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
+        // Parse JSON style commands like {"POWER3":"OFF"} or {"POWER1":"ON"}
+        if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
+        {
+          for (int i = 1; i <= 4; i++)
+          {
+            String targetOn = "{\"POWER" + String(i) + "\":\"ON\"}";
+            String targetOff = "{\"POWER" + String(i) + "\":\"OFF\"}";
+            
+            if (inputBuffer == targetOn)
+            {
+              setRelayState(i, true);
+              break;
+            }
+            else if (inputBuffer == targetOff)
+            {
+              setRelayState(i, false);
+              break;
+            }
+          }
+        }
+        // Parse text-style commands
+        else if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
         {
           setRelayState(1, true);
         }
@@ -364,10 +383,9 @@ void setup()
   pinMode(RelayPin2, OUTPUT);
   pinMode(RelayPin3, OUTPUT);
   pinMode(RelayPin4, OUTPUT);
-
   pinMode(TriacPin, OUTPUT);
-  pinMode(ZeroCrossPin, INPUT_PULLUP);
 
+  pinMode(ZeroCrossPin, INPUT_PULLUP);
   pinMode(SwitchPin1, INPUT_PULLUP);
   pinMode(SwitchPin2, INPUT_PULLUP);
   pinMode(SwitchPin3, INPUT_PULLUP);
@@ -404,8 +422,9 @@ void setup()
   button6.init(SwitchPin6);
 
   delay(500);
-
   eepromState();
+
+  timer.every(2000, sendStatus);
 }
 
 void loop()
@@ -425,42 +444,34 @@ void loop()
 
 void button1Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  switch (eventType)
-  {
-    case AceButton::kEventReleased: relayToggle(1); break;
-  }
+  if (eventType == AceButton::kEventReleased) relayToggle(1);
 }
 
 void button2Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  switch (eventType)
-  {
-    case AceButton::kEventReleased: relayToggle(2); break;
-  }
+  if (eventType == AceButton::kEventReleased) relayToggle(2);
 }
 
 void button3Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  switch (eventType)
-  {
-    case AceButton::kEventReleased: relayToggle(3); break;
-  }
+  if (eventType == AceButton::kEventReleased) relayToggle(3);
 }
 
 void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  switch (eventType)
-  {
-    case AceButton::kEventReleased: relayToggle(4); break;
-  }
+  if (eventType == AceButton::kEventReleased) relayToggle(4);
 }
 
 void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   switch (eventType)
   {
-    case AceButton::kEventLongPressed: triacOff(); break;
-    case AceButton::kEventReleased: dimm_Dn(); break;
+    case AceButton::kEventLongPressed:
+      triacOff();
+      break;
+    case AceButton::kEventReleased:
+      dimm_Dn();
+      break;
   }
 }
 
@@ -468,7 +479,11 @@ void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   switch (eventType)
   {
-    case AceButton::kEventLongPressed: triacOn(); break;
-    case AceButton::kEventReleased: dimm_Up(); break;
+    case AceButton::kEventLongPressed:
+      triacOn();
+      break;
+    case AceButton::kEventReleased:
+      dimm_Up();
+      break;
   }
 }
