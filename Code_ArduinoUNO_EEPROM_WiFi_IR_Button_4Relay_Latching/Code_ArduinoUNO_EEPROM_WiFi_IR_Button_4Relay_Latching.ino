@@ -1,3 +1,9 @@
+#include <EEPROM.h>
+#include <AceButton.h>
+#include <IRremote.h>
+#include <arduino-timer.h>
+#include <atmega328_16mhz_ac_phase_control.h>
+
 using namespace ace_button;
 
 const uint16_t spd[14] = {
