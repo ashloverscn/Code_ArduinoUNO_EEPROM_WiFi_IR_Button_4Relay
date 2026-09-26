@@ -36,8 +36,8 @@ auto timer = timer_create_default();
 #define IR_Button_5    0xF20D7F80
 #define IR_Button_Up   0xF9067F80
 #define IR_Button_Dn   0xFA057F80
-#define IR_All_Off     0xED127F80
-#define IR_All_On      0xE11E7F80
+#define IR_All_Off     0xE11E7F80
+#define IR_All_On      0xED127F80
 
 #define EEPROM_RELAY1      0
 #define EEPROM_RELAY2      1
