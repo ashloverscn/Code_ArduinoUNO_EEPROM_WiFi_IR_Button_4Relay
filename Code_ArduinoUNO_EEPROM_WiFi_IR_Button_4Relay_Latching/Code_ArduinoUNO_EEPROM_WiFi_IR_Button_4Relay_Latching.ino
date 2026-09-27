@@ -49,9 +49,7 @@ auto timer = timer_create_default();
 #define DIMMER_MIN 0
 #define DIMMER_MAX 13
 
-String pinStatus = "0000";
 String inputBuffer;
-
 uint8_t dimm_value = 0;
 bool triacState = false;
 
@@ -78,8 +76,11 @@ void button6Handler(AceButton*, uint8_t, uint8_t);
 
 void all_Switch_ON();
 void all_Switch_OFF();
+bool sendPeriodicStatus(void*);
 void sendTasmotaStatus(int relayNum, bool state);
 void sendTriacTasmotaStatus(bool state);
+void sendDimmerStatus();
+void sendIrResult(uint32_t rawData, const char* protocolName, uint8_t bits);
 
 void applyDimmer()
 {
@@ -104,6 +105,8 @@ void dimm_Up()
 
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
 }
 
 void dimm_Dn()
@@ -117,6 +120,8 @@ void dimm_Dn()
 
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
 }
 
 void setDimmerLevel(uint8_t val)
@@ -128,16 +133,21 @@ void setDimmerLevel(uint8_t val)
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
   sendTriacTasmotaStatus(triacState);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
 }
 
 void triacOn()
 {
   triacState = true;
+  if (dimm_value == 0) dimm_value = 1;
   if (dimm_value > DIMMER_MAX) dimm_value = DIMMER_MAX;
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
   sendTriacTasmotaStatus(true);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
 }
 
 void triacOff()
@@ -146,6 +156,8 @@ void triacOff()
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
   EEPROM.update(EEPROM_TRIAC_STATE, 0);
   sendTriacTasmotaStatus(false);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
 }
 
 void triacOnOff()
@@ -154,7 +166,6 @@ void triacOnOff()
   else triacOn();
 }
 
-// Active-Low logic: turnOn = true sets pin LOW (Relay ON)
 void setRelayState(int relay, bool turnOn)
 {
   int pin = 0;
@@ -172,6 +183,7 @@ void setRelayState(int relay, bool turnOn)
   digitalWrite(pin, turnOn ? LOW : HIGH);
   EEPROM.update(eepromAddress, turnOn ? HIGH : LOW);
   sendTasmotaStatus(relay, turnOn);
+  sendPeriodicStatus(nullptr);
   delay(50);
 }
 
@@ -187,13 +199,13 @@ void relayToggle(int relay)
     default: return;
   }
 
-  bool currentState = (digitalRead(pin) == LOW); // Currently ON if LOW
+  bool currentState = (digitalRead(pin) == LOW);
   setRelayState(relay, !currentState);
 }
 
 void sendTasmotaStatus(int relayNum, bool state)
 {
-  Serial.print("{\"POWER");
+  Serial.print("RSL: RESULT = {\"POWER");
   Serial.print(relayNum);
   Serial.print("\":\"");
   Serial.print(state ? "ON" : "OFF");
@@ -202,9 +214,30 @@ void sendTasmotaStatus(int relayNum, bool state)
 
 void sendTriacTasmotaStatus(bool state)
 {
-  Serial.print("{\"POWER5\":\"");
+  Serial.print("RSL: RESULT = {\"POWER5\":\"");
   Serial.print(state ? "ON" : "OFF");
   Serial.println("\"}");
+}
+
+void sendDimmerStatus()
+{
+  Serial.print("RSL: RESULT = {\"Dimmer\":");
+  Serial.print(dimm_value);
+  Serial.println("}");
+}
+
+void sendIrResult(uint32_t rawData, const char* protocolName, uint8_t bits)
+{
+  char hexBuffer[16];
+  sprintf(hexBuffer, "0x%08lX", (unsigned long)rawData);
+  
+  Serial.print("RSL: RESULT = {\"IrReceived\":{\"Protocol\":\"");
+  Serial.print(protocolName);
+  Serial.print("\",\"Bits\":");
+  Serial.print(bits);
+  Serial.print(",\"Hash\":\"");
+  Serial.print(hexBuffer);
+  Serial.println("\"}}");
 }
 
 void eepromState()
@@ -243,6 +276,9 @@ void ir_remote()
   if (IrReceiver.decode())
   {
     uint32_t code = IrReceiver.decodedIRData.decodedRawData;
+    uint8_t bits = IrReceiver.decodedIRData.numberOfBits;
+    
+    sendIrResult(code, "UNKNOWN", bits ? bits : 32);
 
     if (!(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT))
     {
@@ -272,20 +308,30 @@ void all_Switch_ON()
   setRelayState(4, true);
 }
 
+bool sendPeriodicStatus(void*)
+{
+  Serial.print("RSL: STATE = {\"POWER1\":\"");
+  Serial.print(digitalRead(RelayPin1) == LOW ? "ON" : "OFF");
+  Serial.print("\",\"POWER2\":\"");
+  Serial.print(digitalRead(RelayPin2) == LOW ? "ON" : "OFF");
+  Serial.print("\",\"POWER3\":\"");
+  Serial.print(digitalRead(RelayPin3) == LOW ? "ON" : "OFF");
+  Serial.print("\",\"POWER4\":\"");
+  Serial.print(digitalRead(RelayPin4) == LOW ? "ON" : "OFF");
+  Serial.print("\",\"POWER5\":\"");
+  Serial.print(triacState ? "ON" : "OFF");
+  Serial.print("\",\"Dimmer\":");
+  Serial.print(dimm_value);
+  Serial.println("}");
+  return true;
+}
+
 void all_Switch_OFF()
 {
   setRelayState(1, false);
   setRelayState(2, false);
   setRelayState(3, false);
   setRelayState(4, false);
-}
-
-void sendStatus()
-{
-  pinStatus = String(digitalRead(RelayPin1) == LOW ? "1" : "0") +
-              String(digitalRead(RelayPin2) == LOW ? "1" : "0") +
-              String(digitalRead(RelayPin3) == LOW ? "1" : "0") +
-              String(digitalRead(RelayPin4) == LOW ? "1" : "0");
 }
 
 void handleSerialControl()
@@ -301,7 +347,6 @@ void handleSerialControl()
 
       if (inputBuffer.length() > 0)
       {
-        // Parse JSON style commands like {"POWER3":"OFF"} or {"DIMM_UP":""}
         if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
         {
           for (int i = 1; i <= 4; i++)
@@ -346,75 +391,30 @@ void handleSerialControl()
             all_Switch_OFF();
           }
         }
-        // Parse text-style commands
-        else if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON")
-        {
-          setRelayState(1, true);
-        }
-        else if (inputBuffer == "POWER1 OFF" || inputBuffer == "R1_OFF")
-        {
-          setRelayState(1, false);
-        }
-        else if (inputBuffer == "POWER2 ON" || inputBuffer == "R2_ON")
-        {
-          setRelayState(2, true);
-        }
-        else if (inputBuffer == "POWER2 OFF" || inputBuffer == "R2_OFF")
-        {
-          setRelayState(2, false);
-        }
-        else if (inputBuffer == "POWER3 ON" || inputBuffer == "R3_ON")
-        {
-          setRelayState(3, true);
-        }
-        else if (inputBuffer == "POWER3 OFF" || inputBuffer == "R3_OFF")
-        {
-          setRelayState(3, false);
-        }
-        else if (inputBuffer == "POWER4 ON" || inputBuffer == "R4_ON")
-        {
-          setRelayState(4, true);
-        }
-        else if (inputBuffer == "POWER4 OFF" || inputBuffer == "R4_OFF")
-        {
-          setRelayState(4, false);
-        }
-        else if (inputBuffer == "POWER5 ON" || inputBuffer == "TRIAC ON")
-        {
-          triacOn();
-        }
-        else if (inputBuffer == "POWER5 OFF" || inputBuffer == "TRIAC OFF")
-        {
-          triacOff();
-        }
-        else if (inputBuffer == "DIMM_UP" || inputBuffer == "IR_UP")
-        {
-          dimm_Up();
-        }
-        else if (inputBuffer == "DIMM_DN" || inputBuffer == "IR_DN")
-        {
-          dimm_Dn();
-        }
+        else if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON") { setRelayState(1, true); }
+        else if (inputBuffer == "POWER1 OFF" || inputBuffer == "R1_OFF") { setRelayState(1, false); }
+        else if (inputBuffer == "POWER2 ON" || inputBuffer == "R2_ON") { setRelayState(2, true); }
+        else if (inputBuffer == "POWER2 OFF" || inputBuffer == "R2_OFF") { setRelayState(2, false); }
+        else if (inputBuffer == "POWER3 ON" || inputBuffer == "R3_ON") { setRelayState(3, true); }
+        else if (inputBuffer == "POWER3 OFF" || inputBuffer == "R3_OFF") { setRelayState(3, false); }
+        else if (inputBuffer == "POWER4 ON" || inputBuffer == "R4_ON") { setRelayState(4, true); }
+        else if (inputBuffer == "POWER4 OFF" || inputBuffer == "R4_OFF") { setRelayState(4, false); }
+        else if (inputBuffer == "POWER5 ON" || inputBuffer == "TRIAC ON") { triacOn(); }
+        else if (inputBuffer == "POWER5 OFF" || inputBuffer == "TRIAC OFF") { triacOff(); }
+        else if (inputBuffer == "DIMM_UP" || inputBuffer == "IR_UP") { dimm_Up(); }
+        else if (inputBuffer == "DIMM_DN" || inputBuffer == "IR_DN") { dimm_Dn(); }
         else if (inputBuffer.startsWith("DIMMER "))
         {
           int val = inputBuffer.substring(7).toInt();
           setDimmerLevel(val);
         }
-        else if (inputBuffer == "ALL_ON" || inputBuffer == "POWER ALL ON")
-        {
-          all_Switch_ON();
-        }
-        else if (inputBuffer == "ALL_OFF" || inputBuffer == "POWER ALL OFF")
-        {
-          all_Switch_OFF();
-        }
+        else if (inputBuffer == "ALL_ON" || inputBuffer == "POWER ALL ON") { all_Switch_ON(); }
+        else if (inputBuffer == "ALL_OFF" || inputBuffer == "POWER ALL OFF") { all_Switch_OFF(); }
         else if (inputBuffer == "STATUS")
         {
-          sendStatus();
-          Serial.println(pinStatus);
+          sendPeriodicStatus(nullptr);
         }
       }
-
       inputBuffer = "";
     }
     else
@@ -476,7 +476,8 @@ void setup()
   delay(500);
   eepromState();
 
-  timer.every(2000, sendStatus);
+  // Periodic status update every 5 seconds (5000 milliseconds)
+  timer.every(5000, sendPeriodicStatus);
 }
 
 void loop()
@@ -518,12 +519,8 @@ void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   switch (eventType)
   {
-    case AceButton::kEventLongPressed:
-      triacOff();
-      break;
-    case AceButton::kEventReleased:
-      dimm_Dn();
-      break;
+    case AceButton::kEventLongPressed: triacOff(); break;
+    case AceButton::kEventReleased: dimm_Dn(); break;
   }
 }
 
@@ -531,11 +528,7 @@ void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   switch (eventType)
   {
-    case AceButton::kEventLongPressed:
-      triacOn();
-      break;
-    case AceButton::kEventReleased:
-      dimm_Up();
-      break;
+    case AceButton::kEventLongPressed: triacOn(); break;
+    case AceButton::kEventReleased: dimm_Up(); break;
   }
 }
