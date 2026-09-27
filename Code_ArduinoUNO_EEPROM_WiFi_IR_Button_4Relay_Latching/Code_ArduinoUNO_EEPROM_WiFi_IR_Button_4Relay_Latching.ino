@@ -76,11 +76,10 @@ void button6Handler(AceButton*, uint8_t, uint8_t);
 
 void all_Switch_ON();
 void all_Switch_OFF();
-bool sendPeriodicStatus(void*);
 void sendTasmotaStatus(int relayNum, bool state);
 void sendTriacTasmotaStatus(bool state);
 void sendDimmerStatus();
-void sendIrResult(uint32_t rawData, const char* protocolName, uint8_t bits);
+bool sendPeriodicStatus(void*);
 
 void applyDimmer()
 {
@@ -226,20 +225,6 @@ void sendDimmerStatus()
   Serial.println("}");
 }
 
-void sendIrResult(uint32_t rawData, const char* protocolName, uint8_t bits)
-{
-  char hexBuffer[16];
-  sprintf(hexBuffer, "0x%08lX", (unsigned long)rawData);
-  
-  Serial.print("RSL: RESULT = {\"IrReceived\":{\"Protocol\":\"");
-  Serial.print(protocolName);
-  Serial.print("\",\"Bits\":");
-  Serial.print(bits);
-  Serial.print(",\"Hash\":\"");
-  Serial.print(hexBuffer);
-  Serial.println("\"}}");
-}
-
 void eepromState()
 {
   uint8_t relay1 = EEPROM.read(EEPROM_RELAY1);
@@ -275,13 +260,9 @@ void ir_remote()
 {
   if (IrReceiver.decode())
   {
-    uint32_t code = IrReceiver.decodedIRData.decodedRawData;
-    uint8_t bits = IrReceiver.decodedIRData.numberOfBits;
-    
-    sendIrResult(code, "UNKNOWN", bits ? bits : 32);
-
     if (!(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT))
     {
+      uint32_t code = IrReceiver.decodedIRData.decodedRawData;
       switch (code)
       {
         case IR_Button_1: relayToggle(1); break;
@@ -343,76 +324,81 @@ void handleSerialControl()
     if (incomingChar == '\n' || incomingChar == '\r')
     {
       inputBuffer.trim();
-      inputBuffer.toUpperCase();
 
       if (inputBuffer.length() > 0)
       {
-        if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
-        {
-          for (int i = 1; i <= 4; i++)
-          {
-            String targetOn = "{\"POWER" + String(i) + "\":\"ON\"}";
-            String targetOff = "{\"POWER" + String(i) + "\":\"OFF\"}";
-            
-            if (inputBuffer == targetOn)
-            {
-              setRelayState(i, true);
-              break;
-            }
-            else if (inputBuffer == targetOff)
-            {
-              setRelayState(i, false);
-              break;
-            }
-          }
+        String upperInput = inputBuffer;
+        upperInput.toUpperCase();
 
-          if (inputBuffer == "{\"POWER5\":\"ON\"}" || inputBuffer == "{\"TRIAC\":\"ON\"}")
-          {
-            triacOn();
-          }
-          else if (inputBuffer == "{\"POWER5\":\"OFF\"}" || inputBuffer == "{\"TRIAC\":\"OFF\"}")
-          {
-            triacOff();
-          }
-          else if (inputBuffer == "{\"IR_UP\":\"\"}" || inputBuffer == "{\"DIMM_UP\":\"\"}")
-          {
-            dimm_Up();
-          }
-          else if (inputBuffer == "{\"IR_DN\":\"\"}" || inputBuffer == "{\"DIMM_DN\":\"\"}")
-          {
-            dimm_Dn();
-          }
-          else if (inputBuffer == "{\"ALL_ON\":\"\"}" || inputBuffer == "{\"POWER\":\"ALL_ON\"}")
-          {
-            all_Switch_ON();
-          }
-          else if (inputBuffer == "{\"ALL_OFF\":\"\"}" || inputBuffer == "{\"POWER\":\"ALL_OFF\"}")
-          {
-            all_Switch_OFF();
-          }
-        }
-        else if (inputBuffer == "POWER1 ON" || inputBuffer == "R1_ON") { setRelayState(1, true); }
-        else if (inputBuffer == "POWER1 OFF" || inputBuffer == "R1_OFF") { setRelayState(1, false); }
-        else if (inputBuffer == "POWER2 ON" || inputBuffer == "R2_ON") { setRelayState(2, true); }
-        else if (inputBuffer == "POWER2 OFF" || inputBuffer == "R2_OFF") { setRelayState(2, false); }
-        else if (inputBuffer == "POWER3 ON" || inputBuffer == "R3_ON") { setRelayState(3, true); }
-        else if (inputBuffer == "POWER3 OFF" || inputBuffer == "R3_OFF") { setRelayState(3, false); }
-        else if (inputBuffer == "POWER4 ON" || inputBuffer == "R4_ON") { setRelayState(4, true); }
-        else if (inputBuffer == "POWER4 OFF" || inputBuffer == "R4_OFF") { setRelayState(4, false); }
-        else if (inputBuffer == "POWER5 ON" || inputBuffer == "TRIAC ON") { triacOn(); }
-        else if (inputBuffer == "POWER5 OFF" || inputBuffer == "TRIAC OFF") { triacOff(); }
-        else if (inputBuffer == "DIMM_UP" || inputBuffer == "IR_UP") { dimm_Up(); }
-        else if (inputBuffer == "DIMM_DN" || inputBuffer == "IR_DN") { dimm_Dn(); }
-        else if (inputBuffer.startsWith("DIMMER "))
+        if (!upperInput.startsWith("RSL:") && !upperInput.startsWith("CMD:"))
         {
-          int val = inputBuffer.substring(7).toInt();
-          setDimmerLevel(val);
-        }
-        else if (inputBuffer == "ALL_ON" || inputBuffer == "POWER ALL ON") { all_Switch_ON(); }
-        else if (inputBuffer == "ALL_OFF" || inputBuffer == "POWER ALL OFF") { all_Switch_OFF(); }
-        else if (inputBuffer == "STATUS")
-        {
-          sendPeriodicStatus(nullptr);
+          if (upperInput.startsWith("{") && upperInput.endsWith("}"))
+          {
+            for (int i = 1; i <= 4; i++)
+            {
+              String targetOn = "{\"POWER" + String(i) + "\":\"ON\"}";
+              String targetOff = "{\"POWER" + String(i) + "\":\"OFF\"}";
+              
+              if (upperInput == targetOn)
+              {
+                setRelayState(i, true);
+                break;
+              }
+              else if (upperInput == targetOff)
+              {
+                setRelayState(i, false);
+                break;
+              }
+            }
+
+            if (upperInput == "{\"POWER5\":\"ON\"}" || upperInput == "{\"TRIAC\":\"ON\"}")
+            {
+              triacOn();
+            }
+            else if (upperInput == "{\"POWER5\":\"OFF\"}" || upperInput == "{\"TRIAC\":\"OFF\"}")
+            {
+              triacOff();
+            }
+            else if (upperInput == "{\"IR_UP\":\"\"}" || upperInput == "{\"DIMM_UP\":\"\"}")
+            {
+              dimm_Up();
+            }
+            else if (upperInput == "{\"IR_DN\":\"\"}" || upperInput == "{\"DIMM_DN\":\"\"}")
+            {
+              dimm_Dn();
+            }
+            else if (upperInput == "{\"ALL_ON\":\"\"}" || upperInput == "{\"POWER\":\"ALL_ON\"}")
+            {
+              all_Switch_ON();
+            }
+            else if (upperInput == "{\"ALL_OFF\":\"\"}" || upperInput == "{\"POWER\":\"ALL_OFF\"}")
+            {
+              all_Switch_OFF();
+            }
+          }
+          else if (upperInput == "POWER1 ON" || upperInput == "R1_ON") { setRelayState(1, true); }
+          else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") { setRelayState(1, false); }
+          else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") { setRelayState(2, true); }
+          else if (upperInput == "POWER2 OFF" || upperInput == "R2_OFF") { setRelayState(2, false); }
+          else if (upperInput == "POWER3 ON" || upperInput == "R3_ON") { setRelayState(3, true); }
+          else if (upperInput == "POWER3 OFF" || upperInput == "R3_OFF") { setRelayState(3, false); }
+          else if (upperInput == "POWER4 ON" || upperInput == "R4_ON") { setRelayState(4, true); }
+          else if (upperInput == "POWER4 OFF" || upperInput == "R4_OFF") { setRelayState(4, false); }
+          else if (upperInput == "POWER5 ON" || upperInput == "TRIAC ON") { triacOn(); }
+          else if (upperInput == "POWER5 OFF" || upperInput == "TRIAC OFF") { triacOff(); }
+          else if (upperInput == "DIMM_UP" || upperInput == "IR_UP") { dimm_Up(); }
+          else if (upperInput == "DIMM_DN" || upperInput == "IR_DN") { dimm_Dn(); }
+          else if (upperInput.startsWith("DIMMER "))
+          {
+            int val = upperInput.substring(7).toInt();
+            setDimmerLevel(val);
+          }
+          else if (upperInput == "ALL_ON" || upperInput == "POWER ALL ON") { all_Switch_ON(); }
+          else if (upperInput == "ALL_OFF" || upperInput == "POWER ALL OFF") { all_Switch_OFF(); }
+          else if (upperInput == "STATUS")
+          {
+            sendPeriodicStatus(nullptr);
+          }
         }
       }
       inputBuffer = "";
@@ -476,8 +462,7 @@ void setup()
   delay(500);
   eepromState();
 
-  // Periodic status update every 5 seconds (5000 milliseconds)
-  timer.every(5000, sendPeriodicStatus);
+  timer.every(10000, sendPeriodicStatus);
 }
 
 void loop()
