@@ -6,9 +6,9 @@
 
 using namespace ace_button;
 
-const uint16_t spd[14] = {
-  600, 500, 480, 450, 400, 380, 350,
-  300, 250, 180, 150, 80, 50, 1
+// 10 stages (0 to 9) calibrated between 600 and 1
+const uint16_t spd[10] = {
+  600, 520, 450, 380, 300, 220, 150, 90, 40, 1
 };
 
 auto timer = timer_create_default();
@@ -47,7 +47,7 @@ auto timer = timer_create_default();
 #define EEPROM_TRIAC_STATE 8
 
 #define DIMMER_MIN 0
-#define DIMMER_MAX 13
+#define DIMMER_MAX 9 // Updated for 10 stages (0 to 9)
 
 String inputBuffer;
 uint8_t dimm_value = 0;
@@ -330,12 +330,10 @@ void handleSerialControl()
         String upperInput = inputBuffer;
         upperInput.toUpperCase();
 
-        // Skip internal low-level boot / system logs to prevent false parses
         if (!upperInput.startsWith("QPC") && !upperInput.startsWith("WIF") && !upperInput.startsWith("HDW"))
         {
           bool jsonHandled = false;
 
-          // Check anywhere in the line for POWER1-4 (supports logs with timestamps & RSL prefixes)
           for (int i = 1; i <= 4; i++)
           {
             if (upperInput.indexOf("POWER" + String(i)) != -1)
@@ -380,7 +378,6 @@ void handleSerialControl()
             }
             else
             {
-              // Fallback plain text checks
               if (upperInput == "POWER1 ON" || upperInput == "R1_ON") { setRelayState(1, true); }
               else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") { setRelayState(1, false); }
               else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") { setRelayState(2, true); }
