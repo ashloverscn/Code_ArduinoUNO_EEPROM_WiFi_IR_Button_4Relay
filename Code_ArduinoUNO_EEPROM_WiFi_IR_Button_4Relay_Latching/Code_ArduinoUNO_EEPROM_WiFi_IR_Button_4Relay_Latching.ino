@@ -202,7 +202,6 @@ void relayToggle(int relay)
   setRelayState(relay, !currentState);
 }
 
-// FIXED: Removed "RSL: RESULT = " prefix to prevent Tasmota echo loops
 void sendTasmotaStatus(int relayNum, bool state)
 {
   Serial.print("{\"POWER");
@@ -212,7 +211,6 @@ void sendTasmotaStatus(int relayNum, bool state)
   Serial.println("\"}");
 }
 
-// FIXED: Removed "RSL: RESULT = " prefix
 void sendTriacTasmotaStatus(bool state)
 {
   Serial.print("{\"POWER5\":\"");
@@ -220,7 +218,6 @@ void sendTriacTasmotaStatus(bool state)
   Serial.println("\"}");
 }
 
-// FIXED: Removed "RSL: RESULT = " prefix
 void sendDimmerStatus()
 {
   Serial.print("{\"Dimmer\":");
@@ -292,7 +289,6 @@ void all_Switch_ON()
   setRelayState(4, true);
 }
 
-// FIXED: Removed "RSL: STATE = " prefix
 bool sendPeriodicStatus(void*)
 {
   Serial.print("{\"POWER1\":\"");
@@ -334,86 +330,74 @@ void handleSerialControl()
         String upperInput = inputBuffer;
         upperInput.toUpperCase();
 
-        // FIXED: Ignore all incoming echoes or log headers to stop loops
-        if (!upperInput.startsWith("RSL") && 
-            !upperInput.startsWith("CMD") && 
-            !upperInput.startsWith("STATUS") &&
-            !upperInput.startsWith("MQT"))
+        // Skip internal low-level boot / system logs to prevent false parses
+        if (!upperInput.startsWith("QPC") && !upperInput.startsWith("WIF") && !upperInput.startsWith("HDW"))
         {
           bool jsonHandled = false;
 
-          // Check if it's formatted as a JSON block using brackets
-          if (inputBuffer.startsWith("{") && inputBuffer.endsWith("}"))
+          // Check anywhere in the line for POWER1-4 (supports logs with timestamps & RSL prefixes)
+          for (int i = 1; i <= 4; i++)
           {
-            for (int i = 1; i <= 4; i++)
+            if (upperInput.indexOf("POWER" + String(i)) != -1)
             {
-              if (upperInput.indexOf("POWER" + String(i)) != -1)
+              if (upperInput.indexOf("ON") != -1)
               {
-                if (upperInput.indexOf("ON") != -1)
-                {
-                  setRelayState(i, true);
-                  jsonHandled = true;
-                  break;
-                }
-                else if (upperInput.indexOf("OFF") != -1)
-                {
-                  setRelayState(i, false);
-                  jsonHandled = true;
-                  break;
-                }
+                setRelayState(i, true);
+                jsonHandled = true;
+                break;
               }
-            }
-
-            if (!jsonHandled)
-            {
-              if (upperInput.indexOf("POWER5") != -1 || upperInput.indexOf("TRIAC") != -1)
+              else if (upperInput.indexOf("OFF") != -1)
               {
-                if (upperInput.indexOf("ON") != -1) triacOn();
-                else if (upperInput.indexOf("OFF") != -1) triacOff();
-              }
-              else if (upperInput.indexOf("IR_UP") != -1 || upperInput.indexOf("DIMM_UP") != -1)
-              {
-                dimm_Up();
-              }
-              else if (upperInput.indexOf("IR_DN") != -1 || upperInput.indexOf("DIMM_DN") != -1)
-              {
-                dimm_Dn();
-              }
-              else if (upperInput.indexOf("ALL_ON") != -1)
-              {
-                all_Switch_ON();
-              }
-              else if (upperInput.indexOf("ALL_OFF") != -1)
-              {
-                all_Switch_OFF();
+                setRelayState(i, false);
+                jsonHandled = true;
+                break;
               }
             }
           }
-          else
+
+          if (!jsonHandled)
           {
-            // Plaintext commands fallback
-            if (upperInput == "POWER1 ON" || upperInput == "R1_ON") { setRelayState(1, true); }
-            else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") { setRelayState(1, false); }
-            else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") { setRelayState(2, true); }
-            else if (upperInput == "POWER2 OFF" || upperInput == "R2_OFF") { setRelayState(2, false); }
-            else if (upperInput == "POWER3 ON" || upperInput == "R3_ON") { setRelayState(3, true); }
-            else if (upperInput == "POWER3 OFF" || upperInput == "R3_OFF") { setRelayState(3, false); }
-            else if (upperInput == "POWER4 ON" || upperInput == "R4_ON") { setRelayState(4, true); }
-            else if (upperInput == "POWER4 OFF" || upperInput == "R4_OFF") { setRelayState(4, false); }
-            else if (upperInput == "POWER5 ON" || upperInput == "TRIAC ON") { triacOn(); }
-            else if (upperInput == "POWER5 OFF" || upperInput == "TRIAC OFF") { triacOff(); }
-            else if (upperInput == "DIMM_UP" || upperInput == "IR_UP") { dimm_Up(); }
-            else if (upperInput == "DIMM_DN" || upperInput == "IR_DN") { dimm_Dn(); }
-            else if (upperInput.startsWith("DIMMER "))
+            if (upperInput.indexOf("POWER5") != -1 || upperInput.indexOf("TRIAC") != -1)
             {
-              int val = upperInput.substring(7).toInt();
-              setDimmerLevel(val);
+              if (upperInput.indexOf("ON") != -1) triacOn();
+              else if (upperInput.indexOf("OFF") != -1) triacOff();
             }
-            else if (upperInput == "ALL_ON" || upperInput == "POWER ALL ON") { all_Switch_ON(); }
-            else if (upperInput == "ALL_OFF" || upperInput == "POWER ALL OFF") { all_Switch_OFF(); }
-            else if (upperInput == "STATUS")
+            else if (upperInput.indexOf("DIMM_UP") != -1 || upperInput.indexOf("IR_UP") != -1)
             {
-              sendPeriodicStatus(nullptr);
+              dimm_Up();
+            }
+            else if (upperInput.indexOf("DIMM_DN") != -1 || upperInput.indexOf("IR_DN") != -1)
+            {
+              dimm_Dn();
+            }
+            else if (upperInput.indexOf("ALL_ON") != -1)
+            {
+              all_Switch_ON();
+            }
+            else if (upperInput.indexOf("ALL_OFF") != -1)
+            {
+              all_Switch_OFF();
+            }
+            else
+            {
+              // Fallback plain text checks
+              if (upperInput == "POWER1 ON" || upperInput == "R1_ON") { setRelayState(1, true); }
+              else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") { setRelayState(1, false); }
+              else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") { setRelayState(2, true); }
+              else if (upperInput == "POWER2 OFF" || upperInput == "R2_OFF") { setRelayState(2, false); }
+              else if (upperInput == "POWER3 ON" || upperInput == "R3_ON") { setRelayState(3, true); }
+              else if (upperInput == "POWER3 OFF" || upperInput == "R3_OFF") { setRelayState(3, false); }
+              else if (upperInput == "POWER4 ON" || upperInput == "R4_ON") { setRelayState(4, true); }
+              else if (upperInput == "POWER4 OFF" || upperInput == "R4_OFF") { setRelayState(4, false); }
+              else if (upperInput.startsWith("DIMMER "))
+              {
+                int val = upperInput.substring(7).toInt();
+                setDimmerLevel(val);
+              }
+              else if (upperInput == "STATUS")
+              {
+                sendPeriodicStatus(nullptr);
+              }
             }
           }
         }
