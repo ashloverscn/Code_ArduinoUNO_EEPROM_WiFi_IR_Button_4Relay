@@ -52,7 +52,7 @@ auto timer = timer_create_default();
 String inputBuffer;
 uint8_t dimm_value = 0;
 bool triacState = false;
-uint8_t last_dimm_value = 1;
+uint8_t last_dimm_value = 9; // Default last active speed to max (9)
 
 ButtonConfig config1;
 ButtonConfig config2;
@@ -141,7 +141,8 @@ void setDimmerLevel(uint8_t val)
 void triacOn()
 {
   triacState = true;
-  dimm_value = (last_dimm_value > 0) ? last_dimm_value : 1;
+  dimm_value = DIMMER_MAX; // Use index 9 for complete ON
+  last_dimm_value = DIMMER_MAX;
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
@@ -155,7 +156,7 @@ void triacOff()
     last_dimm_value = dimm_value;
   }
   triacState = false;
-  dimm_value = 0;
+  dimm_value = DIMMER_MIN; // Use index 0 for complete OFF
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 0);
@@ -287,6 +288,7 @@ void all_Switch_ON()
   setRelayState(2, true);
   setRelayState(3, true);
   setRelayState(4, true);
+  setDimmerLevel(DIMMER_MAX); // Sets to index 9
 }
 
 bool sendPeriodicStatus(void*)
@@ -311,6 +313,7 @@ void all_Switch_OFF()
   setRelayState(2, false);
   setRelayState(3, false);
   setRelayState(4, false);
+  setDimmerLevel(DIMMER_MIN); // Sets to index 0
 }
 
 void handleSerialControl()
