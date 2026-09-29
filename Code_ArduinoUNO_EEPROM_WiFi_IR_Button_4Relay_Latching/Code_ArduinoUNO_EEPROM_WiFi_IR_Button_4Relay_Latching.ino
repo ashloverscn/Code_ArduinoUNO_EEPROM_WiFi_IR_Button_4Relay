@@ -47,11 +47,12 @@ auto timer = timer_create_default();
 #define EEPROM_TRIAC_STATE 8
 
 #define DIMMER_MIN 0
-#define DIMMER_MAX 9 // Updated for 10 stages (0 to 9)
+#define DIMMER_MAX 9
 
 String inputBuffer;
 uint8_t dimm_value = 0;
 bool triacState = false;
+uint8_t last_dimm_value = 1;
 
 ButtonConfig config1;
 ButtonConfig config2;
@@ -77,7 +78,6 @@ void button6Handler(AceButton*, uint8_t, uint8_t);
 void all_Switch_ON();
 void all_Switch_OFF();
 void sendTasmotaStatus(int relayNum, bool state);
-void sendTriacTasmotaStatus(bool state);
 void sendDimmerStatus();
 bool sendPeriodicStatus(void*);
 
@@ -128,10 +128,12 @@ void setDimmerLevel(uint8_t val)
   if (val > DIMMER_MAX) val = DIMMER_MAX;
   dimm_value = val;
   triacState = (dimm_value > 0);
+  if (triacState) {
+    last_dimm_value = dimm_value;
+  }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
-  sendTriacTasmotaStatus(triacState);
   sendDimmerStatus();
   sendPeriodicStatus(nullptr);
 }
@@ -139,29 +141,31 @@ void setDimmerLevel(uint8_t val)
 void triacOn()
 {
   triacState = true;
-  if (dimm_value == 0) dimm_value = 1;
-  if (dimm_value > DIMMER_MAX) dimm_value = DIMMER_MAX;
+  dimm_value = (last_dimm_value > 0) ? last_dimm_value : 1;
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
-  sendTriacTasmotaStatus(true);
   sendDimmerStatus();
   sendPeriodicStatus(nullptr);
 }
 
 void triacOff()
 {
+  if (dimm_value > 0) {
+    last_dimm_value = dimm_value;
+  }
   triacState = false;
+  dimm_value = 0;
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
+  EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 0);
-  sendTriacTasmotaStatus(false);
   sendDimmerStatus();
   sendPeriodicStatus(nullptr);
 }
 
 void triacOnOff()
 {
-  if (triacState) triacOff();
+  if (triacState || dimm_value > 0) triacOff();
   else triacOn();
 }
 
@@ -211,13 +215,6 @@ void sendTasmotaStatus(int relayNum, bool state)
   Serial.println("\"}");
 }
 
-void sendTriacTasmotaStatus(bool state)
-{
-  Serial.print("{\"POWER5\":\"");
-  Serial.print(state ? "ON" : "OFF");
-  Serial.println("\"}");
-}
-
 void sendDimmerStatus()
 {
   Serial.print("{\"Dimmer\":");
@@ -251,7 +248,10 @@ void eepromState()
   else dimm_value = DIMMER_MAX;
 
   uint8_t storedTriacState = EEPROM.read(EEPROM_TRIAC_STATE);
-  triacState = (storedTriacState == 1);
+  triacState = (storedTriacState == 1 || dimm_value > 0);
+  if (dimm_value > 0) {
+    last_dimm_value = dimm_value;
+  }
 
   applyDimmer();
 }
@@ -299,8 +299,6 @@ bool sendPeriodicStatus(void*)
   Serial.print(digitalRead(RelayPin3) == LOW ? "ON" : "OFF");
   Serial.print("\",\"POWER4\":\"");
   Serial.print(digitalRead(RelayPin4) == LOW ? "ON" : "OFF");
-  Serial.print("\",\"POWER5\":\"");
-  Serial.print(triacState ? "ON" : "OFF");
   Serial.print("\",\"Dimmer\":");
   Serial.print(dimm_value);
   Serial.println("}");
@@ -353,14 +351,26 @@ void handleSerialControl()
             }
           }
 
+          // Check for Dimmer JSON format like {"Dimmer":"9"} or {"DIMMER":9}
+          if (!jsonHandled && upperInput.indexOf("DIMMER") != -1)
+          {
+            int index = upperInput.indexOf("DIMMER");
+            int colonIndex = upperInput.indexOf(':', index);
+            if (colonIndex != -1)
+            {
+              String sub = upperInput.substring(colonIndex + 1);
+              sub.replace("\"", "");
+              sub.replace("}", "");
+              sub.trim();
+              int val = sub.toInt();
+              setDimmerLevel(val);
+              jsonHandled = true;
+            }
+          }
+
           if (!jsonHandled)
           {
-            if (upperInput.indexOf("POWER5") != -1 || upperInput.indexOf("TRIAC") != -1)
-            {
-              if (upperInput.indexOf("ON") != -1) triacOn();
-              else if (upperInput.indexOf("OFF") != -1) triacOff();
-            }
-            else if (upperInput.indexOf("DIMM_UP") != -1 || upperInput.indexOf("IR_UP") != -1)
+            if (upperInput.indexOf("DIMM_UP") != -1 || upperInput.indexOf("IR_UP") != -1)
             {
               dimm_Up();
             }
