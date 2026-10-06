@@ -13,6 +13,16 @@ arduino-timer.h   Available in Arduino Library Manager
 
 atmega328_16mhz_ac_phase_control.h Library : https://github.com/ashloverscn/atmega328-16mhz-ac-phase-control
 
+https://github.com/ashloverscn/4ch-relay-1fan-arduino-nano-pcb
+
+https://github.com/ashloverscn/4ch-relay-1fan-pcb
+
+https://github.com/ashloverscn/dimmer-pcb
+
+https://github.com/ashloverscn/4ch-relay-pcb
+
+https://github.com/ashloverscn/4ch-spdt-relay-pcb
+
 
 Related Blog by Tech StudyCell : https://iotcircuithub.com/arduino-iot-project-with-google-assistant-alexa/
  
