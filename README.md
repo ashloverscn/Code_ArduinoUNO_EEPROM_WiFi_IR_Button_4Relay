@@ -21,6 +21,8 @@ https://github.com/ashloverscn/4ch-relay-1fan-arduino-nano-pcb
 
 https://github.com/ashloverscn/4ch-relay-1fan-pcb
 
+https://github.com/ashloverscn/4ch-spdt-relay-1fan-pcb
+
 https://github.com/ashloverscn/dimmer-pcb
 
 https://github.com/ashloverscn/4ch-relay-pcb
