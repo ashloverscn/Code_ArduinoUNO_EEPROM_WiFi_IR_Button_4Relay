@@ -52,7 +52,10 @@ auto timer = timer_create_default();
 String inputBuffer;
 uint8_t dimm_value = 0;
 bool triacState = false;
-uint8_t last_dimm_value = 9; // Default last active speed to max (9)
+uint8_t last_dimm_value = 9;
+
+// Variables to track previous state of standard latching wall switches
+bool lastSwitchStates[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 
 ButtonConfig config1;
 ButtonConfig config2;
@@ -67,13 +70,6 @@ AceButton button3(&config3);
 AceButton button4(&config4);
 AceButton button5(&config5);
 AceButton button6(&config6);
-
-void button1Handler(AceButton*, uint8_t, uint8_t);
-void button2Handler(AceButton*, uint8_t, uint8_t);
-void button3Handler(AceButton*, uint8_t, uint8_t);
-void button4Handler(AceButton*, uint8_t, uint8_t);
-void button5Handler(AceButton*, uint8_t, uint8_t);
-void button6Handler(AceButton*, uint8_t, uint8_t);
 
 void all_Switch_ON();
 void all_Switch_OFF();
@@ -96,12 +92,7 @@ void applyDimmer()
 void dimm_Up()
 {
   if (!triacState) return;
-
-  if (dimm_value < DIMMER_MAX)
-  {
-    dimm_value++;
-  }
-
+  if (dimm_value < DIMMER_MAX) { dimm_value++; }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   sendDimmerStatus();
@@ -111,12 +102,7 @@ void dimm_Up()
 void dimm_Dn()
 {
   if (!triacState) return;
-
-  if (dimm_value > DIMMER_MIN)
-  {
-    dimm_value--;
-  }
-
+  if (dimm_value > DIMMER_MIN) { dimm_value--; }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   sendDimmerStatus();
@@ -128,9 +114,7 @@ void setDimmerLevel(uint8_t val)
   if (val > DIMMER_MAX) val = DIMMER_MAX;
   dimm_value = val;
   triacState = (dimm_value > 0);
-  if (triacState) {
-    last_dimm_value = dimm_value;
-  }
+  if (triacState) { last_dimm_value = dimm_value; }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
@@ -141,8 +125,7 @@ void setDimmerLevel(uint8_t val)
 void triacOn()
 {
   triacState = true;
-  dimm_value = DIMMER_MAX; // Use index 9 for complete ON
-  last_dimm_value = DIMMER_MAX;
+  dimm_value = last_dimm_value > 0 ? last_dimm_value : DIMMER_MAX; 
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
@@ -152,11 +135,9 @@ void triacOn()
 
 void triacOff()
 {
-  if (dimm_value > 0) {
-    last_dimm_value = dimm_value;
-  }
+  if (dimm_value > 0) { last_dimm_value = dimm_value; }
   triacState = false;
-  dimm_value = DIMMER_MIN; // Use index 0 for complete OFF
+  dimm_value = DIMMER_MIN; 
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 0);
@@ -166,7 +147,7 @@ void triacOff()
 
 void triacOnOff()
 {
-  if (triacState || dimm_value > 0) triacOff();
+  if (triacState) triacOff();
   else triacOn();
 }
 
@@ -235,14 +216,10 @@ void eepromState()
   if (relay3 > 1) relay3 = LOW;
   if (relay4 > 1) relay4 = LOW;
 
-  digitalWrite(RelayPin1, relay1 == HIGH ? LOW : HIGH);
-  delay(50);
-  digitalWrite(RelayPin2, relay2 == HIGH ? LOW : HIGH);
-  delay(50);
-  digitalWrite(RelayPin3, relay3 == HIGH ? LOW : HIGH);
-  delay(50);
-  digitalWrite(RelayPin4, relay4 == HIGH ? LOW : HIGH);
-  delay(50);
+  digitalWrite(RelayPin1, relay1 == HIGH ? LOW : HIGH); delay(50);
+  digitalWrite(RelayPin2, relay2 == HIGH ? LOW : HIGH); delay(50);
+  digitalWrite(RelayPin3, relay3 == HIGH ? LOW : HIGH); delay(50);
+  digitalWrite(RelayPin4, relay4 == HIGH ? LOW : HIGH); delay(50);
 
   uint8_t storedDimmer = EEPROM.read(EEPROM_DIMMER);
   if (storedDimmer <= DIMMER_MAX) dimm_value = storedDimmer;
@@ -250,9 +227,7 @@ void eepromState()
 
   uint8_t storedTriacState = EEPROM.read(EEPROM_TRIAC_STATE);
   triacState = (storedTriacState == 1 || dimm_value > 0);
-  if (dimm_value > 0) {
-    last_dimm_value = dimm_value;
-  }
+  if (dimm_value > 0) { last_dimm_value = dimm_value; }
 
   applyDimmer();
 }
@@ -288,7 +263,16 @@ void all_Switch_ON()
   setRelayState(2, true);
   setRelayState(3, true);
   setRelayState(4, true);
-  setDimmerLevel(DIMMER_MAX); // Sets to index 9
+  setDimmerLevel(DIMMER_MAX);
+}
+
+void all_Switch_OFF()
+{
+  setRelayState(1, false);
+  setRelayState(2, false);
+  setRelayState(3, false);
+  setRelayState(4, false);
+  setDimmerLevel(DIMMER_MIN);
 }
 
 bool sendPeriodicStatus(void*)
@@ -307,25 +291,14 @@ bool sendPeriodicStatus(void*)
   return true;
 }
 
-void all_Switch_OFF()
-{
-  setRelayState(1, false);
-  setRelayState(2, false);
-  setRelayState(3, false);
-  setRelayState(4, false);
-  setDimmerLevel(DIMMER_MIN); // Sets to index 0
-}
-
 void handleSerialControl()
 {
   while (Serial.available() > 0)
   {
     char incomingChar = (char)Serial.read();
-
     if (incomingChar == '\n' || incomingChar == '\r')
     {
       inputBuffer.trim();
-
       if (inputBuffer.length() > 0)
       {
         String upperInput = inputBuffer;
@@ -334,27 +307,15 @@ void handleSerialControl()
         if (!upperInput.startsWith("QPC") && !upperInput.startsWith("WIF") && !upperInput.startsWith("HDW"))
         {
           bool jsonHandled = false;
-
           for (int i = 1; i <= 4; i++)
           {
             if (upperInput.indexOf("POWER" + String(i)) != -1)
             {
-              if (upperInput.indexOf("ON") != -1)
-              {
-                setRelayState(i, true);
-                jsonHandled = true;
-                break;
-              }
-              else if (upperInput.indexOf("OFF") != -1)
-              {
-                setRelayState(i, false);
-                jsonHandled = true;
-                break;
-              }
+              if (upperInput.indexOf("ON") != -1) { setRelayState(i, true); jsonHandled = true; break; }
+              else if (upperInput.indexOf("OFF") != -1) { setRelayState(i, false); jsonHandled = true; break; }
             }
           }
 
-          // Check for Dimmer JSON format like {"Dimmer":"9"} or {"DIMMER":9}
           if (!jsonHandled && upperInput.indexOf("DIMMER") != -1)
           {
             int index = upperInput.indexOf("DIMMER");
@@ -362,61 +323,69 @@ void handleSerialControl()
             if (colonIndex != -1)
             {
               String sub = upperInput.substring(colonIndex + 1);
-              sub.replace("\"", "");
-              sub.replace("}", "");
-              sub.trim();
-              int val = sub.toInt();
-              setDimmerLevel(val);
+              sub.replace("\"", ""); sub.replace("}", ""); sub.trim();
+              setDimmerLevel(sub.toInt());
               jsonHandled = true;
             }
           }
 
           if (!jsonHandled)
           {
-            if (upperInput.indexOf("DIMM_UP") != -1 || upperInput.indexOf("IR_UP") != -1)
-            {
-              dimm_Up();
-            }
-            else if (upperInput.indexOf("DIMM_DN") != -1 || upperInput.indexOf("IR_DN") != -1)
-            {
-              dimm_Dn();
-            }
-            else if (upperInput.indexOf("ALL_ON") != -1)
-            {
-              all_Switch_ON();
-            }
-            else if (upperInput.indexOf("ALL_OFF") != -1)
-            {
-              all_Switch_OFF();
-            }
+            if (upperInput.indexOf("DIMM_UP") != -1 || upperInput.indexOf("IR_UP") != -1) dimm_Up();
+            else if (upperInput.indexOf("DIMM_DN") != -1 || upperInput.indexOf("IR_DN") != -1) dimm_Dn();
+            else if (upperInput.indexOf("ALL_ON") != -1) all_Switch_ON();
+            else if (upperInput.indexOf("ALL_OFF") != -1) all_Switch_OFF();
             else
             {
-              if (upperInput == "POWER1 ON" || upperInput == "R1_ON") { setRelayState(1, true); }
-              else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") { setRelayState(1, false); }
-              else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") { setRelayState(2, true); }
-              else if (upperInput == "POWER2 OFF" || upperInput == "R2_OFF") { setRelayState(2, false); }
-              else if (upperInput == "POWER3 ON" || upperInput == "R3_ON") { setRelayState(3, true); }
-              else if (upperInput == "POWER3 OFF" || upperInput == "R3_OFF") { setRelayState(3, false); }
-              else if (upperInput == "POWER4 ON" || upperInput == "R4_ON") { setRelayState(4, true); }
-              else if (upperInput == "POWER4 OFF" || upperInput == "R4_OFF") { setRelayState(4, false); }
-              else if (upperInput.startsWith("DIMMER "))
-              {
-                int val = upperInput.substring(7).toInt();
-                setDimmerLevel(val);
-              }
-              else if (upperInput == "STATUS")
-              {
-                sendPeriodicStatus(nullptr);
-              }
+              if (upperInput == "POWER1 ON" || upperInput == "R1_ON") setRelayState(1, true);
+              else if (upperInput == "POWER1 OFF" || upperInput == "R1_OFF") setRelayState(1, false);
+              else if (upperInput == "POWER2 ON" || upperInput == "R2_ON") setRelayState(2, true);
+              else if (upperInput == "POWER2 OFF" || upperInput == "R2_OFF") setRelayState(2, false);
+              else if (upperInput == "POWER3 ON" || upperInput == "R3_ON") setRelayState(3, true);
+              else if (upperInput == "POWER3 OFF" || upperInput == "R3_OFF") setRelayState(3, false);
+              else if (upperInput == "POWER4 ON" || upperInput == "R4_ON") setRelayState(4, true);
+              else if (upperInput == "POWER4 OFF" || upperInput == "R4_OFF") setRelayState(4, false);
+              else if (upperInput.startsWith("DIMMER ")) setDimmerLevel(upperInput.substring(7).toInt());
+              else if (upperInput == "STATUS") sendPeriodicStatus(nullptr);
             }
           }
         }
       }
       inputBuffer = "";
     }
-    else
+    else { inputBuffer += incomingChar; }
+  }
+}
+
+// Custom function to handle mechanical toggle state changes with software debouncing
+void handleWallSwitches()
+{
+  uint8_t pins[6] = {SwitchPin1, SwitchPin2, SwitchPin3, SwitchPin4, SwitchPin5, SwitchPin6};
+  
+  for (int i = 0; i < 6; i++)
+  {
+    bool currentState = digitalRead(pins[i]);
+    
+    if (currentState != lastSwitchStates[i])
     {
-      inputBuffer += incomingChar;
+      delay(25); // Simple software debounce delay for mechanical toggle contact bounce
+      currentState = digitalRead(pins[i]); // Re-verify state after bounce period
+      
+      if (currentState != lastSwitchStates[i])
+      {
+        lastSwitchStates[i] = currentState; // Save new state
+        
+        // Execute action based on which wall switch flipped
+        switch (i)
+        {
+          case 0: relayToggle(1); break;
+          case 1: relayToggle(2); break;
+          case 2: relayToggle(3); break;
+          case 3: relayToggle(4); break;
+          case 4: dimm_Dn(); break; 
+          case 5: dimm_Up(); break; 
+        }
+      }
     }
   }
 }
@@ -450,25 +419,17 @@ void setup()
 
   atmega328_16mhz_ac_phase_control.init();
 
-  config1.setEventHandler(button1Handler);
-  config2.setEventHandler(button2Handler);
-  config3.setEventHandler(button3Handler);
-  config4.setEventHandler(button4Handler);
-  config5.setEventHandler(button5Handler);
-  config6.setEventHandler(button6Handler);
-
-  config5.setFeature(ButtonConfig::kFeatureLongPress);
-  config5.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-
-  config6.setFeature(ButtonConfig::kFeatureLongPress);
-  config6.setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-
-  button1.init(SwitchPin1);
-  button2.init(SwitchPin2);
-  button3.init(SwitchPin3);
-  button4.init(SwitchPin4);
-  button5.init(SwitchPin5);
-  button6.init(SwitchPin6);
+  // Initialize initial latching state tracking variables matching pins
+  for (int i = 0; i < 6; i++)
+  {
+    uint8_t p = SwitchPin1;
+    if(i==1) p = SwitchPin2;
+    if(i==2) p = SwitchPin3;
+    if(i==3) p = SwitchPin4;
+    if(i==4) p = SwitchPin5;
+    if(i==5) p = SwitchPin6;
+    lastSwitchStates[i] = digitalRead(p);
+  }
 
   delay(500);
   eepromState();
@@ -480,51 +441,9 @@ void loop()
 {
   ir_remote();
   handleSerialControl();
-
-  button1.check();
-  button2.check();
-  button3.check();
-  button4.check();
-  button5.check();
-  button6.check();
+  
+  // Edge-detection routine for standard wall toggle switches
+  handleWallSwitches();
 
   timer.tick();
-}
-
-void button1Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  if (eventType == AceButton::kEventReleased) relayToggle(1);
-}
-
-void button2Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  if (eventType == AceButton::kEventReleased) relayToggle(2);
-}
-
-void button3Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  if (eventType == AceButton::kEventReleased) relayToggle(3);
-}
-
-void button4Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  if (eventType == AceButton::kEventReleased) relayToggle(4);
-}
-
-void button5Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  switch (eventType)
-  {
-    case AceButton::kEventLongPressed: triacOff(); break;
-    case AceButton::kEventReleased: dimm_Dn(); break;
-  }
-}
-
-void button6Handler(AceButton* button, uint8_t eventType, uint8_t buttonState)
-{
-  switch (eventType)
-  {
-    case AceButton::kEventLongPressed: triacOn(); break;
-    case AceButton::kEventReleased: dimm_Up(); break;
-  }
 }
