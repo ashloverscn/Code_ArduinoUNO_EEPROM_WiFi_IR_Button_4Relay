@@ -54,8 +54,13 @@ uint8_t dimm_value = 0;
 bool triacState = false;
 uint8_t last_dimm_value = 9;
 
-// Variables to track previous state of standard latching wall switches
+// Variables to track previous state of standard wall switches
 bool lastSwitchStates[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+
+// Variables for tracking long-press duration on SwitchPin5 and SwitchPin6
+unsigned long switchPressStartTime[6] = {0, 0, 0, 0, 0, 0};
+bool switchHeldTriggered[6] = {false, false, false, false, false, false};
+const unsigned long LONG_PRESS_THRESHOLD = 1200; // 1.2 seconds for a distinct long hold
 
 ButtonConfig config1;
 ButtonConfig config2;
@@ -120,7 +125,7 @@ void triacOnOff()
   }
   else 
   {
-    setDimmerLevel(DIMMER_MAX); // Forces state directly to 9 (max) when toggled ON
+    setDimmerLevel(DIMMER_MAX); 
   }
 }
 
@@ -128,7 +133,7 @@ void dimm_Up()
 {
   if (!triacState) 
   { 
-    triacOn(); // Wakes up the triac and restores the last active level
+    triacOn(); 
     return; 
   }
   
@@ -368,33 +373,68 @@ void handleSerialControl()
   }
 }
 
-// Custom function to handle mechanical toggle state changes with software debouncing
+// Wall switch handler supporting normal single steps and long hold (1.2s) for min/max jumps
 void handleWallSwitches()
 {
   uint8_t pins[6] = {SwitchPin1, SwitchPin2, SwitchPin3, SwitchPin4, SwitchPin5, SwitchPin6};
+  unsigned long currentMillis = millis();
   
   for (int i = 0; i < 6; i++)
   {
     bool currentState = digitalRead(pins[i]);
     
+    // Check for state change with basic debounce
     if (currentState != lastSwitchStates[i])
     {
-      delay(25); // Simple software debounce delay for mechanical toggle contact bounce
-      currentState = digitalRead(pins[i]); // Re-verify state after bounce period
+      delay(25); 
+      currentState = digitalRead(pins[i]); 
       
       if (currentState != lastSwitchStates[i])
       {
-        lastSwitchStates[i] = currentState; // Save new state
+        lastSwitchStates[i] = currentState; 
         
-        // Execute action based on which wall switch flipped
-        switch (i)
+        // If switch goes LOW (active press/flip down), record start time
+        if (currentState == LOW)
         {
-          case 0: relayToggle(1); break;
-          case 1: relayToggle(2); break;
-          case 2: relayToggle(3); break;
-          case 3: relayToggle(4); break;
-          case 4: dimm_Dn(); break; 
-          case 5: dimm_Up(); break; 
+          switchPressStartTime[i] = currentMillis;
+          switchHeldTriggered[i] = false;
+        }
+        else
+        {
+          // Switch went back HIGH (released) before long hold threshold -> treat as short click/tap
+          if (!switchHeldTriggered[i])
+          {
+            if (i == 4) dimm_Dn();
+            else if (i == 5) dimm_Up();
+            else
+            {
+              switch (i)
+              {
+                case 0: relayToggle(1); break;
+                case 1: relayToggle(2); break;
+                case 2: relayToggle(3); break;
+                case 3: relayToggle(4); break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Continuously check if the dimmer switches (Pin 5 or Pin 6) are being held down past the 1.2s threshold
+    if ((i == 4 || i == 5) && (currentState == LOW) && (!switchHeldTriggered[i]))
+    {
+      if (currentMillis - switchPressStartTime[i] >= LONG_PRESS_THRESHOLD)
+      {
+        switchHeldTriggered[i] = true; // Prevent re-triggering while still held
+        
+        if (i == 4)
+        {
+          setDimmerLevel(DIMMER_MIN); // Long hold on SwitchPin5 jumps to 0
+        }
+        else
+        {
+          setDimmerLevel(DIMMER_MAX); // Long hold on SwitchPin6 jumps to 9
         }
       }
     }
@@ -453,7 +493,7 @@ void loop()
   ir_remote();
   handleSerialControl();
   
-  // Edge-detection routine for standard wall toggle switches
+  // Edge-detection routine with a solid 1.2s long-press hold feature
   handleWallSwitches();
 
   timer.tick();
