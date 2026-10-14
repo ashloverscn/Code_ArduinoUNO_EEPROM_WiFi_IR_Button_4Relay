@@ -52,7 +52,6 @@ auto timer = timer_create_default();
 String inputBuffer;
 uint8_t dimm_value = 0;
 bool triacState = false;
-uint8_t last_dimm_value = 9;
 
 // Variables to track previous state of standard wall switches
 bool lastSwitchStates[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
@@ -97,7 +96,18 @@ void applyDimmer()
 void triacOn()
 {
   triacState = true;
-  dimm_value = last_dimm_value > 0 ? last_dimm_value : DIMMER_MAX; 
+  
+  // Read directly from EEPROM instead of relying on a RAM-cached last value
+  uint8_t savedDimmer = EEPROM.read(EEPROM_DIMMER);
+  if (savedDimmer > 0 && savedDimmer <= DIMMER_MAX) 
+  {
+    dimm_value = savedDimmer;
+  }
+  else 
+  {
+    dimm_value = DIMMER_MAX; // Default to max if EEPROM value is 0 or invalid
+  }
+  
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, 1);
@@ -107,7 +117,6 @@ void triacOn()
 
 void triacOff()
 {
-  if (dimm_value > 0) { last_dimm_value = dimm_value; }
   triacState = false;
   dimm_value = DIMMER_MIN; 
   atmega328_16mhz_ac_phase_control.set_ac_power(0);
@@ -125,7 +134,7 @@ void triacOnOff()
   }
   else 
   {
-    setDimmerLevel(DIMMER_MAX); 
+    triacOn(); 
   }
 }
 
@@ -159,7 +168,6 @@ void setDimmerLevel(uint8_t val)
   if (val > DIMMER_MAX) val = DIMMER_MAX;
   dimm_value = val;
   triacState = (dimm_value > 0);
-  if (triacState) { last_dimm_value = dimm_value; }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
@@ -243,7 +251,6 @@ void eepromState()
 
   uint8_t storedTriacState = EEPROM.read(EEPROM_TRIAC_STATE);
   triacState = (storedTriacState == 1 || dimm_value > 0);
-  if (dimm_value > 0) { last_dimm_value = dimm_value; }
 
   applyDimmer();
 }
