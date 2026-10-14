@@ -89,9 +89,49 @@ void applyDimmer()
   }
 }
 
+void triacOn()
+{
+  triacState = true;
+  dimm_value = last_dimm_value > 0 ? last_dimm_value : DIMMER_MAX; 
+  applyDimmer();
+  EEPROM.update(EEPROM_DIMMER, dimm_value);
+  EEPROM.update(EEPROM_TRIAC_STATE, 1);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
+}
+
+void triacOff()
+{
+  if (dimm_value > 0) { last_dimm_value = dimm_value; }
+  triacState = false;
+  dimm_value = DIMMER_MIN; 
+  atmega328_16mhz_ac_phase_control.set_ac_power(0);
+  EEPROM.update(EEPROM_DIMMER, dimm_value);
+  EEPROM.update(EEPROM_TRIAC_STATE, 0);
+  sendDimmerStatus();
+  sendPeriodicStatus(nullptr);
+}
+
+void triacOnOff()
+{
+  if (triacState) 
+  {
+    triacOff();
+  }
+  else 
+  {
+    setDimmerLevel(DIMMER_MAX); // Forces state directly to 9 (max) when toggled ON
+  }
+}
+
 void dimm_Up()
 {
-  if (!triacState) return;
+  if (!triacState) 
+  { 
+    triacOn(); // Wakes up the triac and restores the last active level
+    return; 
+  }
+  
   if (dimm_value < DIMMER_MAX) { dimm_value++; }
   applyDimmer();
   EEPROM.update(EEPROM_DIMMER, dimm_value);
@@ -120,35 +160,6 @@ void setDimmerLevel(uint8_t val)
   EEPROM.update(EEPROM_TRIAC_STATE, triacState ? 1 : 0);
   sendDimmerStatus();
   sendPeriodicStatus(nullptr);
-}
-
-void triacOn()
-{
-  triacState = true;
-  dimm_value = last_dimm_value > 0 ? last_dimm_value : DIMMER_MAX; 
-  applyDimmer();
-  EEPROM.update(EEPROM_DIMMER, dimm_value);
-  EEPROM.update(EEPROM_TRIAC_STATE, 1);
-  sendDimmerStatus();
-  sendPeriodicStatus(nullptr);
-}
-
-void triacOff()
-{
-  if (dimm_value > 0) { last_dimm_value = dimm_value; }
-  triacState = false;
-  dimm_value = DIMMER_MIN; 
-  atmega328_16mhz_ac_phase_control.set_ac_power(0);
-  EEPROM.update(EEPROM_DIMMER, dimm_value);
-  EEPROM.update(EEPROM_TRIAC_STATE, 0);
-  sendDimmerStatus();
-  sendPeriodicStatus(nullptr);
-}
-
-void triacOnOff()
-{
-  if (triacState) triacOff();
-  else triacOn();
 }
 
 void setRelayState(int relay, bool turnOn)
