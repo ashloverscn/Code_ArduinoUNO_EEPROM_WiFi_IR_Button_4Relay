@@ -56,10 +56,11 @@ bool triacState = false;
 // Variables to track previous state of standard wall switches
 bool lastSwitchStates[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 
-// Variables for tracking long-press duration on SwitchPin5 and SwitchPin6
+// Variables for tracking long-press duration cleanly
 unsigned long switchPressStartTime[6] = {0, 0, 0, 0, 0, 0};
 bool switchHeldTriggered[6] = {false, false, false, false, false, false};
-const unsigned long LONG_PRESS_THRESHOLD = 1200; // 1.2 seconds for a distinct long hold
+bool switchIsDown[6] = {false, false, false, false, false, false};
+const unsigned long LONG_PRESS_THRESHOLD = 1200; // 1.2 seconds
 
 ButtonConfig config1;
 ButtonConfig config2;
@@ -96,8 +97,6 @@ void applyDimmer()
 void triacOn()
 {
   triacState = true;
-  
-  // Read directly from EEPROM instead of relying on a RAM-cached last value
   uint8_t savedDimmer = EEPROM.read(EEPROM_DIMMER);
   if (savedDimmer > 0 && savedDimmer <= DIMMER_MAX) 
   {
@@ -105,7 +104,7 @@ void triacOn()
   }
   else 
   {
-    dimm_value = DIMMER_MAX; // Default to max if EEPROM value is 0 or invalid
+    dimm_value = DIMMER_MAX; 
   }
   
   applyDimmer();
@@ -128,21 +127,16 @@ void triacOff()
 
 void triacOnOff()
 {
-  if (triacState) 
-  {
-    triacOff();
-  }
-  else 
-  {
-    triacOn(); 
-  }
+  if (triacState) triacOff();
+  else triacOn();
 }
 
 void dimm_Up()
 {
+  // If the dimmer is currently off (0), tap up should start smoothly at level 1 instead of jumping to max/EEPROM memory
   if (!triacState) 
   { 
-    triacOn(); 
+    setDimmerLevel(1); 
     return; 
   }
   
@@ -380,7 +374,6 @@ void handleSerialControl()
   }
 }
 
-// Wall switch handler supporting normal single steps and long hold (1.2s) for min/max jumps
 void handleWallSwitches()
 {
   uint8_t pins[6] = {SwitchPin1, SwitchPin2, SwitchPin3, SwitchPin4, SwitchPin5, SwitchPin6};
@@ -388,39 +381,41 @@ void handleWallSwitches()
   
   for (int i = 0; i < 6; i++)
   {
-    bool currentState = digitalRead(pins[i]);
+    bool rawState = digitalRead(pins[i]);
     
-    // Check for state change with basic debounce
-    if (currentState != lastSwitchStates[i])
+    if (rawState != lastSwitchStates[i])
     {
-      delay(25); 
-      currentState = digitalRead(pins[i]); 
+      delay(15); 
+      rawState = digitalRead(pins[i]);
       
-      if (currentState != lastSwitchStates[i])
+      if (rawState != lastSwitchStates[i])
       {
-        lastSwitchStates[i] = currentState; 
+        lastSwitchStates[i] = rawState;
         
-        // If switch goes LOW (active press/flip down), record start time
-        if (currentState == LOW)
+        if (rawState == LOW)
         {
+          switchIsDown[i] = true;
           switchPressStartTime[i] = currentMillis;
           switchHeldTriggered[i] = false;
         }
         else
         {
-          // Switch went back HIGH (released) before long hold threshold -> treat as short click/tap
-          if (!switchHeldTriggered[i])
+          if (switchIsDown[i])
           {
-            if (i == 4) dimm_Dn();
-            else if (i == 5) dimm_Up();
-            else
+            switchIsDown[i] = false;
+            if (!switchHeldTriggered[i])
             {
-              switch (i)
+              if (i == 4) dimm_Dn();
+              else if (i == 5) dimm_Up();
+              else
               {
-                case 0: relayToggle(1); break;
-                case 1: relayToggle(2); break;
-                case 2: relayToggle(3); break;
-                case 3: relayToggle(4); break;
+                switch (i)
+                {
+                  case 0: relayToggle(1); break;
+                  case 1: relayToggle(2); break;
+                  case 2: relayToggle(3); break;
+                  case 3: relayToggle(4); break;
+                }
               }
             }
           }
@@ -428,21 +423,13 @@ void handleWallSwitches()
       }
     }
     
-    // Continuously check if the dimmer switches (Pin 5 or Pin 6) are being held down past the 1.2s threshold
-    if ((i == 4 || i == 5) && (currentState == LOW) && (!switchHeldTriggered[i]))
+    if ((i == 4 || i == 5) && switchIsDown[i] && !switchHeldTriggered[i])
     {
       if (currentMillis - switchPressStartTime[i] >= LONG_PRESS_THRESHOLD)
       {
-        switchHeldTriggered[i] = true; // Prevent re-triggering while still held
-        
-        if (i == 4)
-        {
-          setDimmerLevel(DIMMER_MIN); // Long hold on SwitchPin5 jumps to 0
-        }
-        else
-        {
-          setDimmerLevel(DIMMER_MAX); // Long hold on SwitchPin6 jumps to 9
-        }
+        switchHeldTriggered[i] = true;
+        if (i == 4) setDimmerLevel(DIMMER_MIN);
+        else setDimmerLevel(DIMMER_MAX);
       }
     }
   }
@@ -477,7 +464,6 @@ void setup()
 
   atmega328_16mhz_ac_phase_control.init();
 
-  // Initialize initial latching state tracking variables matching pins
   for (int i = 0; i < 6; i++)
   {
     uint8_t p = SwitchPin1;
@@ -499,9 +485,6 @@ void loop()
 {
   ir_remote();
   handleSerialControl();
-  
-  // Edge-detection routine with a solid 1.2s long-press hold feature
   handleWallSwitches();
-
   timer.tick();
 }
